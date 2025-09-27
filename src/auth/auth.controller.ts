@@ -80,7 +80,6 @@ export class AuthController {
       // Перенаправляем в мобильное приложение
       res.redirect(`parsifal://google-callback?token=${jwtToken}&code=${code}&state=${state || ''}`);
     } catch (error) {
-      console.error('Ошибка Google mobile callback:', error);
       res.redirect(`parsifal://google-callback?error=authentication_failed`);
     }
   }
@@ -116,12 +115,6 @@ export class AuthController {
     try {
       const { code, redirectUri } = body;
       
-      console.log('Получен запрос на обмен кода Google:', { 
-        code: code ? code.substring(0, 10) + '...' : 'undefined',
-        redirectUri,
-        clientId: process.env.GOOGLE_CLIENT_ID ? 'установлен' : 'не установлен',
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'установлен' : 'не установлен'
-      });
       
       if (!code) {
         throw new Error('Authorization code is missing');
@@ -144,13 +137,8 @@ export class AuthController {
         },
       });
 
-      console.log('Успешно получен токен от Google');
       return tokenResponse.data;
     } catch (error: any) {
-      console.error('Ошибка обмена кода Google:', error);
-      if (error.response) {
-        console.error('Ответ от Google:', error.response.data);
-      }
       throw new Error('Failed to exchange Google authorization code');
     }
   }
@@ -173,7 +161,6 @@ export class AuthController {
 
       return userResponse.data;
     } catch (error) {
-      console.error('Ошибка получения информации о пользователе Google:', error);
       throw new Error('Failed to get Google user info');
     }
   }
@@ -183,12 +170,6 @@ export class AuthController {
     try {
       const { code, redirectUri } = body;
       
-      console.log('Получен запрос на обмен кода Yandex:', { 
-        code: code ? code.substring(0, 10) + '...' : 'undefined',
-        redirectUri,
-        clientId: process.env.YANDEX_CLIENT_ID ? 'установлен' : 'не установлен',
-        clientSecret: process.env.YANDEX_CLIENT_SECRET ? 'установлен' : 'не установлен'
-      });
       
       if (!code) {
         throw new Error('Authorization code is missing');
@@ -215,13 +196,8 @@ export class AuthController {
         },
       });
 
-      console.log('Успешно получен токен от Yandex');
       return tokenResponse.data;
     } catch (error: any) {
-      console.error('Ошибка обмена кода Yandex:', error);
-      if (error.response) {
-        console.error('Ответ от Yandex:', error.response.data);
-      }
       throw new Error('Failed to exchange Yandex authorization code');
     }
   }
@@ -259,7 +235,6 @@ export class AuthController {
 
       return userResponse.data;
     } catch (error) {
-      console.error('Ошибка получения информации о пользователе Yandex:', error);
       throw new Error('Failed to get Yandex user info');
     }
   }
