@@ -35,6 +35,56 @@ export class AuthController {
     }
   }
 
+  @Get('google/mobile-callback')
+  async googleMobileCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      if (!code) {
+        throw new Error('Authorization code is missing');
+      }
+
+      // Обмениваем код на токен через Google
+      const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: `${process.env.BACKEND_URL}/api/auth/google/mobile-callback`,
+        grant_type: 'authorization_code',
+      }, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      // Получаем информацию о пользователе
+      const userResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          Authorization: `Bearer ${tokenResponse.data.access_token}`,
+        },
+      });
+
+      const googleUser = userResponse.data;
+      const user = await this.authService.validateGoogleUser({
+        googleId: googleUser.id,
+        email: googleUser.email,
+        firstName: googleUser.given_name,
+        lastName: googleUser.family_name,
+        picture: googleUser.picture,
+      });
+
+      const jwtToken = await this.authService.generateJwtToken(user);
+      
+      // Перенаправляем в мобильное приложение
+      res.redirect(`parsifal://google-callback?token=${jwtToken}&code=${code}&state=${state || ''}`);
+    } catch (error) {
+      console.error('Ошибка Google mobile callback:', error);
+      res.redirect(`parsifal://google-callback?error=authentication_failed`);
+    }
+  }
+
   @Get('yandex/callback')
   async yandexCallback(
     @Query('code') code: string,
