@@ -133,8 +133,23 @@ export class AuthController {
     try {
       const { code, redirectUri } = body;
       
+      console.log('Получен запрос на обмен кода Yandex:', { 
+        code: code ? code.substring(0, 10) + '...' : 'undefined',
+        redirectUri,
+        clientId: process.env.YANDEX_CLIENT_ID ? 'установлен' : 'не установлен',
+        clientSecret: process.env.YANDEX_CLIENT_SECRET ? 'установлен' : 'не установлен'
+      });
+      
       if (!code) {
         throw new Error('Authorization code is missing');
+      }
+
+      if (!process.env.YANDEX_CLIENT_SECRET || process.env.YANDEX_CLIENT_SECRET === 'your-yandex-client-secret') {
+        throw new Error('Yandex Client Secret не настроен. Пожалуйста, настройте YANDEX_CLIENT_SECRET в файле .env');
+      }
+
+      if (!process.env.YANDEX_CLIENT_ID || process.env.YANDEX_CLIENT_ID === 'your-yandex-client-id') {
+        throw new Error('Yandex Client ID не настроен. Пожалуйста, настройте YANDEX_CLIENT_ID в файле .env');
       }
 
       // Обмениваем код на токен через Yandex
@@ -150,11 +165,30 @@ export class AuthController {
         },
       });
 
+      console.log('Успешно получен токен от Yandex');
       return tokenResponse.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка обмена кода Yandex:', error);
+      if (error.response) {
+        console.error('Ответ от Yandex:', error.response.data);
+      }
       throw new Error('Failed to exchange Yandex authorization code');
     }
+  }
+
+  @Get('yandex/status')
+  async getYandexStatus(): Promise<any> {
+    return {
+      message: 'Yandex OAuth настроен и готов к работе',
+      clientId: process.env.YANDEX_CLIENT_ID ? 'установлен' : 'не установлен',
+      clientSecret: process.env.YANDEX_CLIENT_SECRET ? 'установлен' : 'не установлен',
+      callbackUrl: process.env.YANDEX_CALLBACK_URL,
+      endpoints: {
+        token: 'POST /api/auth/yandex/token',
+        userinfo: 'POST /api/auth/yandex/userinfo',
+        status: 'GET /api/auth/yandex/status'
+      }
+    };
   }
 
   @Post('yandex/userinfo')
