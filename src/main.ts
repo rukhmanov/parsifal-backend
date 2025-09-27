@@ -23,6 +23,9 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  // Устанавливаем глобальный префикс для API
+  app.setGlobalPrefix('api');
+
   const port = process.env.PORT || 3000;
   await app.listen(port);
   

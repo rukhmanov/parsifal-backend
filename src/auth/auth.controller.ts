@@ -66,8 +66,19 @@ export class AuthController {
     try {
       const { code, redirectUri } = body;
       
+      console.log('Получен запрос на обмен кода Google:', { 
+        code: code ? code.substring(0, 10) + '...' : 'undefined',
+        redirectUri,
+        clientId: process.env.GOOGLE_CLIENT_ID ? 'установлен' : 'не установлен',
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'установлен' : 'не установлен'
+      });
+      
       if (!code) {
         throw new Error('Authorization code is missing');
+      }
+
+      if (!process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET === 'your-google-client-secret') {
+        throw new Error('Google Client Secret не настроен. Пожалуйста, настройте GOOGLE_CLIENT_SECRET в файле .env');
       }
 
       // Обмениваем код на токен через Google
@@ -83,9 +94,13 @@ export class AuthController {
         },
       });
 
+      console.log('Успешно получен токен от Google');
       return tokenResponse.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка обмена кода Google:', error);
+      if (error.response) {
+        console.error('Ответ от Google:', error.response.data);
+      }
       throw new Error('Failed to exchange Google authorization code');
     }
   }
