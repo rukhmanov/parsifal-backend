@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, RequestMethod } from '@nestjs/common';
 import helmet from 'helmet';
 import * as cors from 'cors';
 import { AppModule } from './app.module';
@@ -29,8 +29,10 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // Устанавливаем глобальный префикс для API (закомментировано для корневого эндпоинта)
-  // app.setGlobalPrefix('api');
+  // Устанавливаем глобальный префикс для API, исключая корневой эндпоинт
+  app.setGlobalPrefix('api', {
+    exclude: [{ path: '', method: RequestMethod.GET }],
+  });
 
   const port = process.env.PORT || 3000;
   await app.listen(port);

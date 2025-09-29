@@ -9,7 +9,9 @@
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main"
+    "start:prod": "node dist/main",
+    "kill-port": "lsof -ti:3000 | xargs kill -9",
+    "restart": "npm run kill-port && npm run start:dev"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
