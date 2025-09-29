@@ -29,14 +29,14 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // Устанавливаем глобальный префикс для API
-  app.setGlobalPrefix('api');
+  // Устанавливаем глобальный префикс для API (закомментировано для корневого эндпоинта)
+  // app.setGlobalPrefix('api');
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
   
 }
 
-bootstrap().catch((error) => {
+bootstrap().catch(() => {
   process.exit(1);
 });
