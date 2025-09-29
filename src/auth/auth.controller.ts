@@ -152,15 +152,32 @@ export class AuthController {
         throw new Error('Access token is missing');
       }
 
-      // Получаем информацию о пользователе через Google API
-      const userResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      // Проверяем, является ли токен JWT (от нашего бэкенда)
+      if (accessToken.startsWith('eyJ')) {
+        // Это JWT токен от нашего бэкенда, декодируем его
+        const user = await this.authService.validateJwtToken(accessToken);
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.firstName + ' ' + user.lastName,
+          given_name: user.firstName,
+          family_name: user.lastName,
+          picture: user.picture,
+          verified_email: true,
+          locale: 'ru'
+        };
+      } else {
+        // Это Google access token, получаем информацию через Google API
+        const userResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
 
-      return userResponse.data;
+        return userResponse.data;
+      }
     } catch (error) {
+      console.error('Error in getGoogleUserInfo:', error);
       throw new Error('Failed to get Google user info');
     }
   }

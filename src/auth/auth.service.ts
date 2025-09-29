@@ -16,6 +16,9 @@ export interface JwtPayload {
   sub: string;
   email: string;
   provider: 'google' | 'yandex';
+  firstName?: string;
+  lastName?: string;
+  picture?: string;
 }
 
 @Injectable()
@@ -65,6 +68,9 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       provider: user.provider,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      picture: user.picture,
     };
 
     return this.jwtService.sign(payload);
@@ -75,6 +81,25 @@ export class AuthService {
       return this.jwtService.verify(token);
     } catch (error) {
       throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  async validateJwtToken(token: string): Promise<User> {
+    try {
+      const payload = await this.verifyJwtToken(token);
+      
+      // Возвращаем пользователя на основе JWT payload
+      return {
+        id: payload.sub,
+        email: payload.email,
+        firstName: payload.firstName || payload.email.split('@')[0],
+        lastName: payload.lastName || '',
+        picture: payload.picture,
+        provider: payload.provider,
+        providerId: payload.sub,
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid JWT token');
     }
   }
 }
