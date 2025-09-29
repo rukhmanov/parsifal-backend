@@ -87,9 +87,10 @@ export class AuthService {
   async validateJwtToken(token: string): Promise<User> {
     try {
       const payload = await this.verifyJwtToken(token);
+      console.log('JWT payload:', payload);
       
       // Возвращаем пользователя на основе JWT payload
-      return {
+      const user = {
         id: payload.sub,
         email: payload.email,
         firstName: payload.firstName || payload.email.split('@')[0],
@@ -98,7 +99,11 @@ export class AuthService {
         provider: payload.provider,
         providerId: payload.sub,
       };
+      
+      console.log('Validated user:', user);
+      return user;
     } catch (error) {
+      console.error('JWT validation error:', error);
       throw new UnauthorizedException('Invalid JWT token');
     }
   }

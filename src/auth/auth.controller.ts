@@ -70,8 +70,8 @@ export class AuthController {
       const user = await this.authService.validateGoogleUser({
         googleId: googleUser.id,
         email: googleUser.email,
-        firstName: googleUser.given_name,
-        lastName: googleUser.family_name,
+        firstName: googleUser.given_name || googleUser.name?.split(' ')[0] || 'User',
+        lastName: googleUser.family_name || googleUser.name?.split(' ')[1] || '',
         picture: googleUser.picture,
       });
 
