@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Query, Req, Res, UseGuards, Body } from '@nestjs/common';
+import { Controller, Get, Post, Query, Req, Res, UseGuards, Body, ValidationPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
 import axios from 'axios';
 
 export interface GoogleCallbackRequest extends Request {
@@ -254,5 +255,41 @@ export class AuthController {
     } catch (error) {
       throw new Error('Failed to get Yandex user info');
     }
+  }
+
+  // Эндпоинты для локальной аутентификации
+  @Post('register')
+  async register(@Body(ValidationPipe) registerDto: RegisterDto): Promise<{ user: any; token: string }> {
+    const user = await this.authService.register(registerDto);
+    const token = await this.authService.generateJwtToken(user);
+    
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        provider: user.provider,
+      },
+      token,
+    };
+  }
+
+  @Post('login')
+  @UseGuards(AuthGuard('local'))
+  async login(@Req() req: Request): Promise<{ user: any; token: string }> {
+    const user = req.user as any;
+    const token = await this.authService.generateJwtToken(user);
+    
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        provider: user.provider,
+      },
+      token,
+    };
   }
 }
