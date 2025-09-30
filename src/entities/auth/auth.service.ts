@@ -75,8 +75,6 @@ export class AuthService {
 
   // Единый метод для обработки пользователей от OAuth провайдеров
   private async processOAuthUser(userData: UnifiedUserData): Promise<User> {
-    console.log('Processing OAuth user:', userData);
-    
     // Ищем существующего пользователя
     let user = await this.userService.findByEmailAndProvider(
       userData.email, 
@@ -85,7 +83,6 @@ export class AuthService {
     );
     
     if (user) {
-      console.log('Found existing user:', user);
       // Обновляем данные существующего пользователя
       const updatedUser = await this.userService.update(user.id, {
         firstName: userData.firstName,
@@ -93,10 +90,8 @@ export class AuthService {
         displayName: userData.displayName || `${userData.firstName} ${userData.lastName}`.trim(),
         avatar: userData.avatar,
       });
-      console.log('Updated user:', updatedUser);
       return updatedUser!;
     } else {
-      console.log('Creating new user...');
       // Создаем нового пользователя
       const newUser = await this.userService.create({
         email: userData.email,
@@ -108,7 +103,6 @@ export class AuthService {
         providerId: userData.providerId,
         isActive: true,
       });
-      console.log('Created new user:', newUser);
       return newUser;
     }
   }
@@ -188,7 +182,6 @@ export class AuthService {
   async validateJwtToken(token: string): Promise<User> {
     try {
       const payload = await this.verifyJwtToken(token);
-      console.log('JWT payload:', payload);
       
       // Получаем пользователя из БД
       const user = await this.userService.findById(payload.sub);
@@ -196,10 +189,8 @@ export class AuthService {
         throw new UnauthorizedException('User not found');
       }
       
-      console.log('Validated user:', user);
       return user;
     } catch (error) {
-      console.error('JWT validation error:', error);
       throw new UnauthorizedException('Invalid JWT token');
     }
   }
@@ -260,15 +251,5 @@ export class AuthService {
     // Возвращаем пользователя без пароля
     const { password: _, ...userWithoutPassword } = user;
     return userWithoutPassword as User;
-  }
-
-  // Метод для получения всех пользователей (для отладки)
-  async getAllUsers(): Promise<User[]> {
-    return await this.userService.findAll();
-  }
-
-  // Метод для получения количества пользователей (для отладки)
-  async getUserCount(): Promise<number> {
-    return await this.userService.getCount();
   }
 }

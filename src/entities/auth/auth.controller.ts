@@ -338,25 +338,4 @@ export class AuthController {
       token,
     };
   }
-
-  @Get('debug/users')
-  async getAllUsers(): Promise<any> {
-    const users = await this.authService.getAllUsers();
-    const count = await this.authService.getUserCount();
-    
-    return {
-      count,
-      users,
-      message: 'Данные из PostgreSQL базы данных parsifal_db'
-    };
-  }
-
-  @Get('debug/users/count')
-  async getUserCount(): Promise<any> {
-    const count = await this.authService.getUserCount();
-    return {
-      count,
-      message: 'Количество пользователей в PostgreSQL базе данных'
-    };
-  }
 }
