@@ -16,6 +16,11 @@ export interface YandexUserInfo {
   default_avatar_id: string;
   is_avatar_empty: boolean;
   psuid: string;
+  birthday?: string;
+  default_phone?: {
+    id: number;
+    number: string;
+  };
 }
 
 export interface YandexTokenResponse {
