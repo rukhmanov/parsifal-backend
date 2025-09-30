@@ -3,47 +3,119 @@ import { JwtService } from '@nestjs/jwt';
 import { YandexStrategy, YandexUserInfo } from './strategies/yandex.strategy';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
+import axios from 'axios';
+import { UserService } from '../user/user.service';
+import { User } from '../user/user.entity';
 
-export interface User {
-  id: string;
+// Единый интерфейс для данных от разных провайдеров
+export interface UnifiedUserData {
   email: string;
   firstName: string;
   lastName: string;
-  picture?: string;
-  provider: 'google' | 'yandex' | 'local';
+  displayName?: string;
+  avatar?: string;
+  authProvider: 'google' | 'yandex';
   providerId: string;
-  password?: string; // Только для локальных пользователей
 }
 
 export interface JwtPayload {
   sub: string;
   email: string;
-  provider: 'google' | 'yandex' | 'local';
+  authProvider: 'google' | 'yandex' | 'local';
   firstName?: string;
   lastName?: string;
-  picture?: string;
+  displayName?: string;
+  avatar?: string;
 }
 
 @Injectable()
 export class AuthService {
-  // Временное хранилище пользователей (в реальном проекте используйте базу данных)
-  private users: User[] = [];
-
   constructor(
     private readonly jwtService: JwtService,
     private readonly yandexStrategy: YandexStrategy,
+    private readonly userService: UserService,
   ) {}
 
-  async validateGoogleUser(googleUser: any): Promise<User> {
+  // Нормализация данных от Google
+  private normalizeGoogleData(googleUser: any): UnifiedUserData {
+    const firstName = googleUser.given_name || googleUser.firstName || googleUser.name?.split(' ')[0] || 'User';
+    const lastName = googleUser.family_name || googleUser.lastName || googleUser.name?.split(' ')[1] || '';
+    const displayName = googleUser.name || `${firstName} ${lastName}`.trim();
+    
     return {
-      id: googleUser.googleId,
       email: googleUser.email,
-      firstName: googleUser.firstName,
-      lastName: googleUser.lastName,
-      picture: googleUser.picture,
-      provider: 'google',
-      providerId: googleUser.googleId,
+      firstName,
+      lastName,
+      displayName,
+      avatar: googleUser.picture,
+      authProvider: 'google',
+      providerId: googleUser.id || googleUser.googleId,
     };
+  }
+
+  // Нормализация данных от Yandex
+  private normalizeYandexData(yandexUser: YandexUserInfo): UnifiedUserData {
+    const firstName = yandexUser.first_name || yandexUser.real_name?.split(' ')[0] || 'User';
+    const lastName = yandexUser.last_name || yandexUser.real_name?.split(' ')[1] || '';
+    const displayName = yandexUser.display_name || yandexUser.real_name || `${firstName} ${lastName}`.trim();
+    const avatar = yandexUser.default_avatar_id ? 
+      `https://avatars.yandex.net/get-yapic/${yandexUser.default_avatar_id}/islands-200` : 
+      undefined;
+    
+    return {
+      email: yandexUser.default_email,
+      firstName,
+      lastName,
+      displayName,
+      avatar,
+      authProvider: 'yandex',
+      providerId: yandexUser.id,
+    };
+  }
+
+  // Единый метод для обработки пользователей от OAuth провайдеров
+  private async processOAuthUser(userData: UnifiedUserData): Promise<User> {
+    console.log('Processing OAuth user:', userData);
+    
+    // Ищем существующего пользователя
+    let user = await this.userService.findByEmailAndProvider(
+      userData.email, 
+      userData.providerId, 
+      userData.authProvider
+    );
+    
+    if (user) {
+      console.log('Found existing user:', user);
+      // Обновляем данные существующего пользователя
+      const updatedUser = await this.userService.update(user.id, {
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        displayName: userData.displayName || `${userData.firstName} ${userData.lastName}`.trim(),
+        avatar: userData.avatar,
+      });
+      console.log('Updated user:', updatedUser);
+      return updatedUser!;
+    } else {
+      console.log('Creating new user...');
+      // Создаем нового пользователя
+      const newUser = await this.userService.create({
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        displayName: userData.displayName || `${userData.firstName} ${userData.lastName}`.trim(),
+        avatar: userData.avatar,
+        authProvider: userData.authProvider,
+        providerId: userData.providerId,
+        isActive: true,
+      });
+      console.log('Created new user:', newUser);
+      return newUser;
+    }
+  }
+
+  async validateGoogleUser(googleUser: any): Promise<User> {
+    const normalizedData = this.normalizeGoogleData(googleUser);
+    return await this.processOAuthUser(normalizedData);
   }
 
   async validateYandexUser(code: string): Promise<User> {
@@ -53,19 +125,41 @@ export class AuthService {
         tokenResponse.access_token,
       );
 
-      return {
-        id: userInfo.id,
-        email: userInfo.default_email,
-        firstName: userInfo.first_name,
-        lastName: userInfo.last_name,
-        picture: userInfo.default_avatar_id ? 
-          `https://avatars.yandex.net/get-yapic/${userInfo.default_avatar_id}/islands-200` : 
-          undefined,
-        provider: 'yandex',
-        providerId: userInfo.id,
-      };
+      const normalizedData = this.normalizeYandexData(userInfo);
+      return await this.processOAuthUser(normalizedData);
     } catch (error) {
       throw new UnauthorizedException('Failed to authenticate with Yandex');
+    }
+  }
+
+  // Метод для обработки пользователя по access token (для случаев когда токен уже получен)
+  async validateUserByAccessToken(accessToken: string, provider: 'google' | 'yandex'): Promise<User> {
+    try {
+      let userInfo: any;
+      
+      if (provider === 'google') {
+        const response = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        userInfo = response.data;
+        const normalizedData = this.normalizeGoogleData(userInfo);
+        return await this.processOAuthUser(normalizedData);
+      } else if (provider === 'yandex') {
+        const response = await axios.get('https://login.yandex.ru/info', {
+          headers: {
+            Authorization: `OAuth ${accessToken}`,
+          },
+        });
+        userInfo = response.data;
+        const normalizedData = this.normalizeYandexData(userInfo);
+        return await this.processOAuthUser(normalizedData);
+      }
+      
+      throw new Error('Unsupported provider');
+    } catch (error) {
+      throw new UnauthorizedException(`Failed to authenticate with ${provider}`);
     }
   }
 
@@ -73,10 +167,11 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
-      provider: user.provider,
+      authProvider: user.authProvider,
       firstName: user.firstName,
       lastName: user.lastName,
-      picture: user.picture,
+      displayName: user.displayName,
+      avatar: user.avatar,
     };
 
     return this.jwtService.sign(payload);
@@ -95,16 +190,11 @@ export class AuthService {
       const payload = await this.verifyJwtToken(token);
       console.log('JWT payload:', payload);
       
-      // Возвращаем пользователя на основе JWT payload
-      const user = {
-        id: payload.sub,
-        email: payload.email,
-        firstName: payload.firstName || payload.email.split('@')[0],
-        lastName: payload.lastName || '',
-        picture: payload.picture,
-        provider: payload.provider,
-        providerId: payload.sub,
-      };
+      // Получаем пользователя из БД
+      const user = await this.userService.findById(payload.sub);
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
       
       console.log('Validated user:', user);
       return user;
@@ -119,7 +209,7 @@ export class AuthService {
     const { email, password, firstName, lastName } = registerDto;
 
     // Проверяем, существует ли пользователь с таким email
-    const existingUser = this.users.find(user => user.email === email);
+    const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
       throw new ConflictException('Пользователь с таким email уже существует');
     }
@@ -129,17 +219,16 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Создаем нового пользователя
-    const newUser: User = {
-      id: Date.now().toString(), // Временный ID
+    const newUser = await this.userService.create({
       email,
       firstName,
       lastName,
-      provider: 'local',
+      displayName: `${firstName} ${lastName}`.trim(),
+      authProvider: 'local',
       providerId: email,
       password: hashedPassword,
-    };
-
-    this.users.push(newUser);
+      isActive: true,
+    });
 
     // Возвращаем пользователя без пароля
     const { password: _, ...userWithoutPassword } = newUser;
@@ -147,7 +236,7 @@ export class AuthService {
   }
 
   async validateLocalUser(email: string, password: string): Promise<User | null> {
-    const user = this.users.find(u => u.email === email);
+    const user = await this.userService.findByEmail(email);
     if (!user || !user.password) {
       return null;
     }
@@ -163,7 +252,7 @@ export class AuthService {
   }
 
   async findUserByEmail(email: string): Promise<User | null> {
-    const user = this.users.find(u => u.email === email);
+    const user = await this.userService.findByEmail(email);
     if (!user) {
       return null;
     }
@@ -171,5 +260,15 @@ export class AuthService {
     // Возвращаем пользователя без пароля
     const { password: _, ...userWithoutPassword } = user;
     return userWithoutPassword as User;
+  }
+
+  // Метод для получения всех пользователей (для отладки)
+  async getAllUsers(): Promise<User[]> {
+    return await this.userService.findAll();
+  }
+
+  // Метод для получения количества пользователей (для отладки)
+  async getUserCount(): Promise<number> {
+    return await this.userService.getCount();
   }
 }

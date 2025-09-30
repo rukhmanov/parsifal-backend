@@ -140,7 +140,8 @@ export class AuthController {
 
       return tokenResponse.data;
     } catch (error: any) {
-      throw new Error('Failed to exchange Google authorization code');
+      console.error('Google token exchange error:', error.response?.data || error.message);
+      throw new Error(`Failed to exchange Google authorization code: ${error.response?.data?.error_description || error.message}`);
     }
   }
 
@@ -160,26 +161,38 @@ export class AuthController {
         return {
           id: user.id,
           email: user.email,
-          name: user.firstName + ' ' + user.lastName,
+          name: user.displayName || `${user.firstName} ${user.lastName}`,
           given_name: user.firstName,
           family_name: user.lastName,
-          picture: user.picture,
+          picture: user.avatar,
           verified_email: true,
           locale: 'ru'
         };
       } else {
-        // Это Google access token, получаем информацию через Google API
-        const userResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        return userResponse.data;
+        // Это Google access token, используем новую единую логику
+        const user = await this.authService.validateUserByAccessToken(accessToken, 'google');
+        const jwtToken = await this.authService.generateJwtToken(user);
+        
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.displayName || `${user.firstName} ${user.lastName}`,
+          given_name: user.firstName,
+          family_name: user.lastName,
+          picture: user.avatar,
+          verified_email: true,
+          locale: 'ru',
+          jwtToken // Возвращаем JWT токен для клиента
+        };
       }
-    } catch (error) {
-      console.error('Error in getGoogleUserInfo:', error);
-      throw new Error('Failed to get Google user info');
+    } catch (error: any) {
+      console.error('Error in getGoogleUserInfo:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw new Error(`Failed to get Google user info: ${error.message}`);
     }
   }
 
@@ -244,14 +257,37 @@ export class AuthController {
         throw new Error('Access token is missing');
       }
 
-      // Получаем информацию о пользователе через Yandex API
-      const userResponse = await axios.get('https://login.yandex.ru/info', {
-        headers: {
-          Authorization: `OAuth ${accessToken}`,
-        },
-      });
-
-      return userResponse.data;
+      // Проверяем, является ли токен JWT (от нашего бэкенда)
+      if (accessToken.startsWith('eyJ')) {
+        // Это JWT токен от нашего бэкенда, декодируем его
+        const user = await this.authService.validateJwtToken(accessToken);
+        return {
+          id: user.id,
+          default_email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          display_name: user.displayName,
+          default_avatar_id: user.avatar ? user.avatar.split('/').pop() : undefined,
+          real_name: user.displayName || `${user.firstName} ${user.lastName}`,
+          login: user.email.split('@')[0]
+        };
+      } else {
+        // Это Yandex access token, используем новую единую логику
+        const user = await this.authService.validateUserByAccessToken(accessToken, 'yandex');
+        const jwtToken = await this.authService.generateJwtToken(user);
+        
+        return {
+          id: user.id,
+          default_email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          display_name: user.displayName,
+          default_avatar_id: user.avatar ? user.avatar.split('/').pop() : undefined,
+          real_name: user.displayName || `${user.firstName} ${user.lastName}`,
+          login: user.email.split('@')[0],
+          jwtToken // Возвращаем JWT токен для клиента
+        };
+      }
     } catch (error) {
       throw new Error('Failed to get Yandex user info');
     }
@@ -269,7 +305,12 @@ export class AuthController {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        provider: user.provider,
+        displayName: user.displayName,
+        avatar: user.avatar,
+        authProvider: user.authProvider,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
       token,
     };
@@ -287,9 +328,35 @@ export class AuthController {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        provider: user.provider,
+        displayName: user.displayName,
+        avatar: user.avatar,
+        authProvider: user.authProvider,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
       token,
+    };
+  }
+
+  @Get('debug/users')
+  async getAllUsers(): Promise<any> {
+    const users = await this.authService.getAllUsers();
+    const count = await this.authService.getUserCount();
+    
+    return {
+      count,
+      users,
+      message: 'Данные из PostgreSQL базы данных parsifal_db'
+    };
+  }
+
+  @Get('debug/users/count')
+  async getUserCount(): Promise<any> {
+    const count = await this.authService.getUserCount();
+    return {
+      count,
+      message: 'Количество пользователей в PostgreSQL базе данных'
     };
   }
 }
