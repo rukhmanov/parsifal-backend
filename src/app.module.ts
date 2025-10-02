@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './entities/auth/auth.module';
@@ -24,6 +26,31 @@ import { UserModule } from './entities/user/user.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: configService.get('NODE_ENV') !== 'production', // Только для разработки
         logging: configService.get('NODE_ENV') === 'development',
+      }),
+      inject: [ConfigService],
+    }),
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        transport: {
+          host: configService.get('SMTP_HOST', 'smtp.mail.ru'),
+          port: configService.get('SMTP_PORT', 587),
+          secure: configService.get('SMTP_PORT') === '465',
+          auth: {
+            user: configService.get('SMTP_USER'),
+            pass: configService.get('SMTP_PASS'),
+          },
+        },
+        defaults: {
+          from: configService.get('FROM_EMAIL', configService.get('SMTP_USER')),
+        },
+        template: {
+          dir: __dirname + '/views',
+          adapter: new HandlebarsAdapter(),
+          options: {
+            strict: true,
+          },
+        },
       }),
       inject: [ConfigService],
     }),

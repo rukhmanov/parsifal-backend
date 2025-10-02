@@ -6,6 +6,8 @@ import { RegisterDto } from './dto/register.dto';
 import axios from 'axios';
 import { UserService } from '../user/user.service';
 import { User } from '../user/user.entity';
+import * as crypto from 'crypto';
+import { EmailNewService } from '../../common/email-new.service';
 
 // Единый интерфейс для данных от разных провайдеров
 export interface UnifiedUserData {
@@ -34,6 +36,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly yandexStrategy: YandexStrategy,
     private readonly userService: UserService,
+    private readonly emailNewService: EmailNewService,
   ) {}
 
   // Нормализация данных от Google
@@ -251,5 +254,55 @@ export class AuthService {
     // Возвращаем пользователя без пароля
     const { password: _, ...userWithoutPassword } = user;
     return userWithoutPassword as User;
+  }
+
+  // Метод для отправки запроса на восстановление пароля
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      // Не раскрываем информацию о том, существует ли пользователь
+      return { message: 'Если аккаунт с таким email существует, на него будет отправлена ссылка для восстановления пароля' };
+    }
+
+    // Генерируем уникальный токен восстановления
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // Ссылка действительна 1 час
+
+    // Сохраняем токен и срок его действия в базе данных
+    await this.userService.updateResetToken(user.id, resetToken, resetTokenExpiry);
+
+    // Формируем ссылку для восстановления пароля
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+    try {
+      // Отправляем email с ссылкой для сброса пароля
+      await this.emailNewService.sendPasswordResetEmail(email, resetUrl);
+      
+      console.log(`✅ Password reset email sent to: ${email}`);
+    } catch (error) {
+      console.error(`❌ Failed to send password reset email to: ${email}`, error);
+      // Не раскрываем ошибку пользователю для безопасности
+    }
+
+    return { message: 'Если аккаунт с таким email существует, на него будет отправлена ссылка для восстановления пароля' };
+  }
+
+  // Метод для сброса пароля по токену
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.userService.findByResetToken(token);
+    
+    if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      throw new UnauthorizedException('Недействительная или истекшая ссылка для восстановления пароля');
+    }
+
+    // Хэшируем новый пароль
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Обновляем пароль пользователя и очищаем токен восстановления
+    await this.userService.updatePassword(user.id, hashedPassword);
+    await this.userService.clearResetToken(user.id);
+
+    return { message: 'Пароль успешно изменен' };
   }
 }

@@ -24,6 +24,12 @@ export class User {
   @Column({ nullable: true })
   password?: string; // Только для локальных пользователей
 
+  @Column({ nullable: true })
+  resetToken?: string; // Токен для восстановления пароля
+
+  @Column({ nullable: true })
+  resetTokenExpiry?: Date; // Срок действия токена восстановления
+
   @Column({ type: 'varchar', length: 20 })
   authProvider!: 'google' | 'yandex' | 'local';
 

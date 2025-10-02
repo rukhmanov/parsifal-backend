@@ -9,12 +9,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { YandexStrategy } from './strategies/yandex.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { UserModule } from '../user/user.module';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
     PassportModule,
     ConfigModule,
     UserModule,
+    CommonModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

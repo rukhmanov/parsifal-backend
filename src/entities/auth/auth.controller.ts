@@ -3,6 +3,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { EmailNewService } from '../../common/email-new.service';
 import axios from 'axios';
 
 export interface GoogleCallbackRequest extends Request {
@@ -11,7 +14,10 @@ export interface GoogleCallbackRequest extends Request {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly emailNewService: EmailNewService,
+  ) {}
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
@@ -351,5 +357,33 @@ export class AuthController {
       },
       token,
     };
+  }
+
+  // Эндпоинт для восстановления пароля
+  @Post('forgot-password')
+  async forgotPassword(@Body(ValidationPipe) forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
+    return await this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  // Эндпоинт для сброса пароля по токену
+  @Post('reset-password')
+  async resetPassword(@Body(ValidationPipe) resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+    return await this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+  }
+
+  // Эндпоинт для тестирования email сервиса (только для разработки)
+  @Get('test-email')
+  async testEmail(): Promise<{ message: string; success: boolean }> {
+    try {
+      const isWorking = await this.emailNewService.testEmailConnection();
+      
+      if (isWorking) {
+        return { message: '✅ Email сервис настроен правильно', success: true };
+      } else {
+        return { message: '❌ Ошибка подключения к email сервису', success: false };
+      }
+    } catch (error: any) {
+      return { message: `❌ Ошибка: ${error.message || 'Неизвестная ошибка'}`, success: false };
+    }
   }
 }
