@@ -105,6 +105,27 @@ export class AuthController {
     }
   }
 
+  @Get('yandex/mobile-callback')
+  async yandexMobileCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      if (!code) {
+        throw new Error('Authorization code is missing');
+      }
+
+      const user = await this.authService.validateYandexUser(code);
+      const jwtToken = await this.authService.generateJwtToken(user);
+      
+      // Перенаправляем в мобильное приложение
+      res.redirect(`parsifal://yandex-callback?token=${jwtToken}&code=${code}&state=${state || ''}`);
+    } catch (error) {
+      res.redirect(`parsifal://yandex-callback?error=authentication_failed`);
+    }
+  }
+
   @Get('profile')
   @UseGuards(AuthGuard('jwt'))
   async getProfile(@Req() req: Request): Promise<any> {
@@ -229,7 +250,14 @@ export class AuthController {
 
       return tokenResponse.data;
     } catch (error: any) {
-      throw new Error('Failed to exchange Yandex authorization code');
+      console.error('❌ Yandex token exchange error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
+      throw new Error(`Failed to exchange Yandex authorization code: ${error.message}`);
     }
   }
 
