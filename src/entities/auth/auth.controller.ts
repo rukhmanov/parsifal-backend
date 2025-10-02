@@ -161,7 +161,6 @@ export class AuthController {
 
       return tokenResponse.data;
     } catch (error: any) {
-      console.error('Google token exchange error:', error.response?.data || error.message);
       throw new Error(`Failed to exchange Google authorization code: ${error.response?.data?.error_description || error.message}`);
     }
   }
@@ -207,12 +206,6 @@ export class AuthController {
         };
       }
     } catch (error: any) {
-      console.error('Error in getGoogleUserInfo:', {
-        message: error.message,
-        stack: error.stack,
-        response: error.response?.data,
-        status: error.response?.status
-      });
       throw new Error(`Failed to get Google user info: ${error.message}`);
     }
   }
@@ -250,13 +243,6 @@ export class AuthController {
 
       return tokenResponse.data;
     } catch (error: any) {
-      console.error('❌ Yandex token exchange error:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        url: error.config?.url
-      });
       throw new Error(`Failed to exchange Yandex authorization code: ${error.message}`);
     }
   }
