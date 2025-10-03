@@ -33,7 +33,6 @@ export class EmailNewService {
       });
       return true;
     } catch (error) {
-      console.error('Email connection test failed:', error);
       return false;
     }
   }

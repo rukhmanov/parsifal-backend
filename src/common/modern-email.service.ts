@@ -9,14 +9,13 @@ export class ModernEmailService {
     try {
       await this.mailerService.sendMail({
         to: to,
-        subject: '🔄 Сброс пароля - Parsifal',
+        subject: 'Сброс пароля - Parsifal',
         template: './password-reset', // будет искать в views/password-reset.hbs
         context: {
           resetUrl: resetUrl,
           username: to.split('@')[0], // извлекаем имя пользователя из email
         },
       });
-      console.log(`✅ Password reset email sent to: ${to}`);
     } catch (error) {
       console.error('❌ Error sending email:', error);
       throw new Error('Failed to send password reset email');
@@ -33,7 +32,6 @@ export class ModernEmailService {
       });
       return true;
     } catch (error) {
-      console.error('❌ Email test failed:', error);
       return false;
     }
   }

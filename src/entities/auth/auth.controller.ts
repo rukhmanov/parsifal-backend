@@ -386,4 +386,5 @@ export class AuthController {
       return { message: `❌ Ошибка: ${error.message || 'Неизвестная ошибка'}`, success: false };
     }
   }
+
 }

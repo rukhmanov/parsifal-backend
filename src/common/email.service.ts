@@ -29,11 +29,6 @@ export class EmailService {
 
     try {
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', info.messageId);
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Reset link for development:', resetUrl);
-      }
     } catch (error) {
       console.error('Error sending email:', error);
       throw new Error('Не удалось отправить email для сброса пароля');
@@ -122,10 +117,10 @@ export class EmailService {
     <body>
         <div class="email-container">
             <div class="header">
-                <div class="logo">🎭 Parsifal</div>
+                <div class="logo">Parsifal</div>
             </div>
             
-            <h2>🔄 Сброс пароля</h2>
+            <h2>Сброс пароля</h2>
             
             <p>Здравствуйте!</p>
             
@@ -134,11 +129,11 @@ export class EmailService {
             <p>Если это вы - нажмите на кнопку ниже для создания нового пароля:</p>
             
             <div style="text-align: center;">
-                <a href="${resetUrl}" class="btn">🔐 Сбросить пароль</a>
+                <a href="${resetUrl}" class="btn">Сбросить пароль</a>
             </div>
             
             <div class="warning">
-                ⚠️ <strong>Важная информация:</strong>
+                <strong>Важная информация:</strong>
                 <ul>
                     <li>Эта ссылка действительна только в течение <strong>1 часа</strong></li>
                     <li>После использования ссылка станет недоступной</li>

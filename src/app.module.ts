@@ -25,7 +25,7 @@ import { UserModule } from './entities/user/user.module';
         database: configService.get('DB_NAME', 'parsifal_db'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: configService.get('NODE_ENV') !== 'production', // Только для разработки
-        logging: configService.get('NODE_ENV') === 'development',
+        logging: false,
       }),
       inject: [ConfigService],
     }),
@@ -45,7 +45,7 @@ import { UserModule } from './entities/user/user.module';
           from: configService.get('FROM_EMAIL', configService.get('SMTP_USER')),
         },
         template: {
-          dir: __dirname + '/views',
+          dir: process.cwd() + '/dist/views',
           adapter: new HandlebarsAdapter(),
           options: {
             strict: true,

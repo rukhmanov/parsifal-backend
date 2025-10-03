@@ -264,6 +264,17 @@ export class AuthService {
       return { message: 'Если аккаунт с таким email существует, на него будет отправлена ссылка для восстановления пароля' };
     }
 
+    // Проверяем, что пользователь зарегистрирован через email (локальная регистрация)
+    if (user.authProvider !== 'local') {
+      // Не раскрываем информацию о способе регистрации для безопасности
+      return { message: 'Если аккаунт с таким email существует, на него будет отправлена ссылка для восстановления пароля' };
+    }
+
+    // Проверяем, что у пользователя есть пароль (дополнительная проверка)
+    if (!user.password) {
+      return { message: 'Если аккаунт с таким email существует, на него будет отправлена ссылка для восстановления пароля' };
+    }
+
     // Генерируем уникальный токен восстановления
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenExpiry = new Date(Date.now() + 3600000); // Ссылка действительна 1 час
@@ -277,10 +288,7 @@ export class AuthService {
     try {
       // Отправляем email с ссылкой для сброса пароля
       await this.emailNewService.sendPasswordResetEmail(email, resetUrl);
-      
-      console.log(`✅ Password reset email sent to: ${email}`);
     } catch (error) {
-      console.error(`❌ Failed to send password reset email to: ${email}`, error);
       // Не раскрываем ошибку пользователю для безопасности
     }
 
@@ -292,6 +300,11 @@ export class AuthService {
     const user = await this.userService.findByResetToken(token);
     
     if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+      throw new UnauthorizedException('Недействительная или истекшая ссылка для восстановления пароля');
+    }
+
+    // Дополнительная проверка: убеждаемся, что пользователь зарегистрирован локально
+    if (user.authProvider !== 'local') {
       throw new UnauthorizedException('Недействительная или истекшая ссылка для восстановления пароля');
     }
 
