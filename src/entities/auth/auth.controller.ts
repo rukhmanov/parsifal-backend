@@ -6,6 +6,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailNewService } from '../../common/email-new.service';
+import { UserService } from '../user/user.service';
 import axios from 'axios';
 
 export interface GoogleCallbackRequest extends Request {
@@ -17,6 +18,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly emailNewService: EmailNewService,
+    private readonly userService: UserService,
   ) {}
 
   @Get('google')
@@ -385,6 +387,24 @@ export class AuthController {
     } catch (error: any) {
       return { message: `❌ Ошибка: ${error.message || 'Неизвестная ошибка'}`, success: false };
     }
+  }
+
+  // Эндпоинт для получения всех пользователей (для админ панели)
+  // Временно без авторизации для тестирования
+  @Get('users')
+  async getAllUsers(): Promise<any[]> {
+    const users = await this.userService.findAll();
+    
+    // Возвращаем пользователей в формате, ожидаемом фронтендом
+    return users.map(user => ({
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      provider: user.authProvider || 'local',
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }));
   }
 
 }

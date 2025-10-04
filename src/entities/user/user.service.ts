@@ -64,4 +64,12 @@ export class UserService {
       resetTokenExpiry: undefined,
     });
   }
+
+  // Получение всех пользователей (для админ панели)
+  async findAll(): Promise<User[]> {
+    return await this.userRepository.find({
+      select: ['id', 'email', 'firstName', 'lastName', 'displayName', 'avatar', 'authProvider', 'isActive', 'createdAt', 'updatedAt'],
+      order: { createdAt: 'DESC' }
+    });
+  }
 }
