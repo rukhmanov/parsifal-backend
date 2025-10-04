@@ -7,6 +7,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailNewService } from '../../common/email-new.service';
 import { UserService } from '../user/user.service';
+import { FilterQuery, FilterBody } from '../../common/decorators/filter.decorator';
+import { FilterRequestDto } from '../../common/dto/filter.dto';
 import axios from 'axios';
 
 export interface GoogleCallbackRequest extends Request {
@@ -405,6 +407,127 @@ export class AuthController {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     }));
+  }
+
+  // Эндпоинт для получения пользователей с фильтрацией через query параметры
+  @Get('users/filter')
+  async getUsersWithFilter(@FilterQuery() filterRequest: FilterRequestDto): Promise<any> {
+    const result = await this.userService.findAllWithFilters(filterRequest);
+    
+    // Возвращаем пользователей в формате, ожидаемом фронтендом
+    const users = result.data.map(user => ({
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      displayName: user.displayName,
+      avatar: user.avatar,
+      provider: user.authProvider || 'local',
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }));
+
+    return {
+      data: users,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages
+    };
+  }
+
+  // Эндпоинт для получения пользователей с фильтрацией через POST запрос
+  @Post('users/search')
+  async searchUsers(@FilterBody() filterRequest: FilterRequestDto): Promise<any> {
+    const result = await this.userService.findAllWithFilters(filterRequest);
+    
+    // Возвращаем пользователей в формате, ожидаемом фронтендом
+    const users = result.data.map(user => ({
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      displayName: user.displayName,
+      avatar: user.avatar,
+      provider: user.authProvider || 'local',
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }));
+
+    return {
+      data: users,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      totalPages: result.totalPages
+    };
+  }
+
+  // Эндпоинт для получения конфигурации полей фильтрации
+  @Get('users/filter-config')
+  async getFilterConfig(): Promise<any> {
+    const fields = this.userService.getFilterFields();
+    
+    return {
+      fields: fields.map(field => ({
+        key: field.key,
+        label: this.getFieldLabel(field.key),
+        type: this.getFieldType(field.type),
+        searchable: field.searchable,
+        sortable: field.sortable,
+        options: this.getFieldOptions(field.key)
+      })),
+      globalSearchPlaceholder: 'Поиск пользователей...',
+      showGlobalSearch: true,
+      showFieldFilters: true,
+      showSorting: true,
+      defaultSortField: 'createdAt',
+      defaultSortDirection: 'desc'
+    };
+  }
+
+  // Вспомогательные методы для конфигурации полей
+  private getFieldLabel(key: string): string {
+    const labels: Record<string, string> = {
+      email: 'Email',
+      firstName: 'Имя',
+      lastName: 'Фамилия',
+      displayName: 'Отображаемое имя',
+      authProvider: 'Провайдер авторизации',
+      isActive: 'Активен',
+      createdAt: 'Дата создания',
+      updatedAt: 'Дата обновления'
+    };
+    return labels[key] || key;
+  }
+
+  private getFieldType(type: string): string {
+    const typeMap: Record<string, string> = {
+      string: 'text',
+      number: 'number',
+      boolean: 'boolean',
+      date: 'date'
+    };
+    return typeMap[type] || 'text';
+  }
+
+  private getFieldOptions(key: string): any[] | undefined {
+    if (key === 'authProvider') {
+      return [
+        { value: 'google', label: 'Google' },
+        { value: 'yandex', label: 'Yandex' },
+        { value: 'local', label: 'Локальный' }
+      ];
+    }
+    if (key === 'isActive') {
+      return [
+        { value: true, label: 'Активен' },
+        { value: false, label: 'Неактивен' }
+      ];
+    }
+    return undefined;
   }
 
 }
