@@ -473,13 +473,12 @@ export class AuthController {
     return {
       fields: fields.map(field => ({
         key: field.key,
-        label: this.getFieldLabel(field.key),
         type: this.getFieldType(field.type),
         searchable: field.searchable,
         sortable: field.sortable,
+        isStatusFilter: field.isStatusFilter,
         options: this.getFieldOptions(field.key)
       })),
-      globalSearchPlaceholder: 'Поиск пользователей...',
       showGlobalSearch: true,
       showFieldFilters: true,
       showSorting: true,
@@ -489,20 +488,6 @@ export class AuthController {
   }
 
   // Вспомогательные методы для конфигурации полей
-  private getFieldLabel(key: string): string {
-    const labels: Record<string, string> = {
-      email: 'Email',
-      firstName: 'Имя',
-      lastName: 'Фамилия',
-      displayName: 'Отображаемое имя',
-      authProvider: 'Провайдер авторизации',
-      isActive: 'Активен',
-      createdAt: 'Дата создания',
-      updatedAt: 'Дата обновления'
-    };
-    return labels[key] || key;
-  }
-
   private getFieldType(type: string): string {
     const typeMap: Record<string, string> = {
       string: 'text',
@@ -516,15 +501,15 @@ export class AuthController {
   private getFieldOptions(key: string): any[] | undefined {
     if (key === 'authProvider') {
       return [
-        { value: 'google', label: 'Google' },
-        { value: 'yandex', label: 'Yandex' },
-        { value: 'local', label: 'Локальный' }
+        { value: 'google' },
+        { value: 'yandex' },
+        { value: 'local' }
       ];
     }
     if (key === 'isActive') {
       return [
-        { value: true, label: 'Активен' },
-        { value: false, label: 'Неактивен' }
+        { value: true },
+        { value: false }
       ];
     }
     return undefined;

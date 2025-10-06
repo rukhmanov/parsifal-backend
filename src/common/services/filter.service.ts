@@ -7,6 +7,7 @@ export interface FilterField {
   type: 'string' | 'number' | 'boolean' | 'date';
   searchable?: boolean;
   sortable?: boolean;
+  isStatusFilter?: boolean;
 }
 
 @Injectable()
