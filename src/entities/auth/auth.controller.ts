@@ -473,10 +473,11 @@ export class AuthController {
     return {
       fields: fields.map(field => ({
         key: field.key,
-        type: this.getFieldType(field.type),
+        type: this.getFieldType(field.type, field),
         searchable: field.searchable,
         sortable: field.sortable,
         isStatusFilter: field.isStatusFilter,
+        isRangeFilter: field.isRangeFilter,
         options: this.getFieldOptions(field.key)
       })),
       showGlobalSearch: true,
@@ -488,7 +489,16 @@ export class AuthController {
   }
 
   // Вспомогательные методы для конфигурации полей
-  private getFieldType(type: string): string {
+  private getFieldType(type: string, field: any): string {
+    // Специальные типы фильтров
+    if (field.isStatusFilter) {
+      return 'status-select';
+    }
+    if (field.isRangeFilter) {
+      return 'date-range';
+    }
+    
+    // Обычные типы
     const typeMap: Record<string, string> = {
       string: 'text',
       number: 'number',
@@ -499,17 +509,21 @@ export class AuthController {
   }
 
   private getFieldOptions(key: string): any[] | undefined {
-    if (key === 'authProvider') {
+    if (key === 'userStatus') {
       return [
-        { value: 'google' },
-        { value: 'yandex' },
-        { value: 'local' }
+        { value: 'all', label: 'Все' },
+        { value: 'active', label: 'Активные' },
+        { value: 'inactive', label: 'Неактивные' }
       ];
     }
-    if (key === 'isActive') {
+    if (key === 'authProvider') {
       return [
-        { value: true },
-        { value: false }
+        { value: 'all', label: 'Все провайдеры' },
+        { value: 'email', label: 'Email' },
+        { value: 'google', label: 'Google' },
+        { value: 'facebook', label: 'Facebook' },
+        { value: 'github', label: 'GitHub' },
+        { value: 'apple', label: 'Apple' }
       ];
     }
     return undefined;
