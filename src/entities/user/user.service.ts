@@ -19,7 +19,7 @@ export class UserService {
     { key: 'firstName', type: 'string' as const, searchable: true, sortable: true },
     { key: 'lastName', type: 'string' as const, searchable: true, sortable: true },
     { key: 'displayName', type: 'string' as const, searchable: true, sortable: true },
-    { key: 'userStatus', type: 'string' as const, searchable: false, sortable: true, isStatusFilter: true },
+    { key: 'isActive', type: 'boolean' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'authProvider', type: 'string' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'createdAt', type: 'date' as const, searchable: false, sortable: true, isRangeFilter: true },
     { key: 'updatedAt', type: 'date' as const, searchable: false, sortable: true, isRangeFilter: true },

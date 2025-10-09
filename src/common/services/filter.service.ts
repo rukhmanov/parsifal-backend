@@ -58,19 +58,17 @@ export class FilterService {
     if (searchableFields.length === 0) return;
 
     const searchConditions = searchableFields.map(field => {
-      const fieldPath = `${entityAlias}.${field.key}`;
-      
       switch (field.type) {
         case 'string':
-          return `LOWER(${fieldPath}) LIKE LOWER(:searchTerm)`;
+          return `LOWER("${entityAlias}"."${field.key}") LIKE LOWER(:searchTerm)`;
         case 'number':
-          return `CAST(${fieldPath} AS TEXT) LIKE :searchTerm`;
+          return `CAST("${entityAlias}"."${field.key}" AS TEXT) LIKE :searchTerm`;
         case 'boolean':
-          return `CAST(${fieldPath} AS TEXT) LIKE :searchTerm`;
+          return `CAST("${entityAlias}"."${field.key}" AS TEXT) LIKE :searchTerm`;
         case 'date':
-          return `TO_CHAR(${fieldPath}, 'YYYY-MM-DD') LIKE :searchTerm`;
+          return `TO_CHAR("${entityAlias}"."${field.key}", 'YYYY-MM-DD') LIKE :searchTerm`;
         default:
-          return `LOWER(${fieldPath}) LIKE LOWER(:searchTerm)`;
+          return `LOWER("${entityAlias}"."${field.key}") LIKE LOWER(:searchTerm)`;
       }
     });
 
@@ -94,30 +92,28 @@ export class FilterService {
       const field = entityFields.find(f => f.key === key);
       if (!field) return;
 
-      const fieldPath = `${entityAlias}.${field.key}`;
-
       switch (field.type) {
         case 'string':
-          queryBuilder.andWhere(`LOWER(${fieldPath}) LIKE LOWER(:${key})`, {
+          queryBuilder.andWhere(`LOWER("${entityAlias}"."${field.key}") LIKE LOWER(:${key})`, {
             [key]: `%${value}%`
           });
           break;
         case 'number':
           if (typeof value === 'number') {
-            queryBuilder.andWhere(`${fieldPath} = :${key}`, { [key]: value });
+            queryBuilder.andWhere(`"${entityAlias}"."${field.key}" = :${key}`, { [key]: value });
           } else if (typeof value === 'string' && !isNaN(Number(value))) {
-            queryBuilder.andWhere(`${fieldPath} = :${key}`, { [key]: Number(value) });
+            queryBuilder.andWhere(`"${entityAlias}"."${field.key}" = :${key}`, { [key]: Number(value) });
           }
           break;
         case 'boolean':
           const boolValue = value === 'true' || value === true;
-          queryBuilder.andWhere(`${fieldPath} = :${key}`, { [key]: boolValue });
+          queryBuilder.andWhere(`"${entityAlias}"."${field.key}" = :${key}`, { [key]: boolValue });
           break;
         case 'date':
           if (value instanceof Date) {
-            queryBuilder.andWhere(`DATE(${fieldPath}) = DATE(:${key})`, { [key]: value });
+            queryBuilder.andWhere(`DATE("${entityAlias}"."${field.key}") = DATE(:${key})`, { [key]: value });
           } else if (typeof value === 'string') {
-            queryBuilder.andWhere(`DATE(${fieldPath}) = DATE(:${key})`, { [key]: value });
+            queryBuilder.andWhere(`DATE("${entityAlias}"."${field.key}") = DATE(:${key})`, { [key]: value });
           }
           break;
       }
@@ -136,10 +132,9 @@ export class FilterService {
     const field = entityFields.find(f => f.key === sort.field);
     if (!field || field.sortable === false) return;
 
-    const fieldPath = `${entityAlias}.${field.key}`;
     const direction = sort.direction.toUpperCase() as 'ASC' | 'DESC';
     
-    queryBuilder.orderBy(fieldPath, direction);
+    queryBuilder.orderBy(`"${entityAlias}"."${field.key}"`, direction);
   }
 
   /**
