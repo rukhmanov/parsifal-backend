@@ -404,6 +404,8 @@ export class AuthController {
       firstName: user.firstName,
       lastName: user.lastName,
       provider: user.authProvider || 'local',
+      roleId: user.roleId,
+      role: user.role ? { id: user.role.id, name: user.role.name } : null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     }));
@@ -423,6 +425,8 @@ export class AuthController {
       displayName: user.displayName,
       avatar: user.avatar,
       provider: user.authProvider || 'local',
+      roleId: user.roleId,
+      role: user.role ? { id: user.role.id, name: user.role.name } : null,
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
@@ -451,6 +455,8 @@ export class AuthController {
       displayName: user.displayName,
       avatar: user.avatar,
       provider: user.authProvider || 'local',
+      roleId: user.roleId,
+      role: user.role ? { id: user.role.id, name: user.role.name } : null,
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
@@ -463,6 +469,28 @@ export class AuthController {
       pageSize: result.pageSize,
       totalPages: result.totalPages
     };
+  }
+
+  // Временный эндпоинт для получения ролей
+  @Get('roles')
+  async getRoles(): Promise<any[]> {
+    // Получаем уникальные роли из пользователей
+    const users = await this.userService.findAll();
+    const uniqueRoles = users
+      .filter(user => user.role)
+      .map(user => ({
+        id: user.role!.id,
+        name: user.role!.name,
+        description: user.role!.description || '',
+        isActive: user.role!.isActive,
+        createdAt: user.role!.createdAt,
+        updatedAt: user.role!.updatedAt
+      }))
+      .filter((role, index, self) => 
+        index === self.findIndex(r => r.id === role.id)
+      );
+    
+    return uniqueRoles;
   }
 
 }

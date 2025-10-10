@@ -19,6 +19,7 @@ export class UserService {
     { key: 'firstName', type: 'string' as const, searchable: true, sortable: true },
     { key: 'lastName', type: 'string' as const, searchable: true, sortable: true },
     { key: 'displayName', type: 'string' as const, searchable: true, sortable: true },
+    { key: 'roleId', type: 'status-select' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'isActive', type: 'boolean' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'authProvider', type: 'status-select' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'createdAt', type: 'date' as const, searchable: false, sortable: true, isRangeFilter: true },
@@ -92,7 +93,8 @@ export class UserService {
   // Получение всех пользователей (для админ панели)
   async findAll(): Promise<User[]> {
     return await this.userRepository.find({
-      select: ['id', 'email', 'firstName', 'lastName', 'displayName', 'avatar', 'authProvider', 'isActive', 'createdAt', 'updatedAt'],
+      select: ['id', 'email', 'firstName', 'lastName', 'displayName', 'avatar', 'authProvider', 'roleId', 'isActive', 'createdAt', 'updatedAt'],
+      relations: ['role'],
       order: { createdAt: 'DESC' }
     });
   }
@@ -101,6 +103,7 @@ export class UserService {
   async findAllWithFilters(request: FilterRequestDto): Promise<FilterResponseDto<User>> {
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
+      .leftJoinAndSelect('user.role', 'role')
       .select([
         'user.id',
         'user.email',
@@ -109,9 +112,12 @@ export class UserService {
         'user.displayName',
         'user.avatar',
         'user.authProvider',
+        'user.roleId',
         'user.isActive',
         'user.createdAt',
-        'user.updatedAt'
+        'user.updatedAt',
+        'role.id',
+        'role.name'
       ]);
 
     // Применяем фильтрацию
