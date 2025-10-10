@@ -4,10 +4,11 @@ import { FilterRequestDto, FilterResponseDto, SortDirection } from '../dto/filte
 
 export interface FilterField {
   key: string;
-  type: 'string' | 'number' | 'boolean' | 'date';
+  type: 'string' | 'number' | 'boolean' | 'date' | 'status-select';
   searchable?: boolean;
   sortable?: boolean;
   isStatusFilter?: boolean;
+  isRangeFilter?: boolean;
 }
 
 @Injectable()
@@ -115,6 +116,10 @@ export class FilterService {
           } else if (typeof value === 'string') {
             queryBuilder.andWhere(`DATE("${entityAlias}"."${field.key}") = DATE(:${key})`, { [key]: value });
           }
+          break;
+        case 'status-select':
+          // Для статус-селектов используем точное совпадение
+          queryBuilder.andWhere(`"${entityAlias}"."${field.key}" = :${key}`, { [key]: value });
           break;
       }
     });
