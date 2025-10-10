@@ -11,7 +11,8 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "kill-port": "lsof -ti:3000 | xargs kill -9",
-    "restart": "npm run kill-port && npm run start:dev"
+    "restart": "npm run kill-port && npm run start:dev",
+    "init-roles": "ts-node src/scripts/initialize-roles-permissions.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { Role } from '../role/role.entity';
 
 @Entity('users')
 @Index(['email', 'authProvider'], { unique: true }) // Составной уникальный индекс
@@ -38,6 +39,13 @@ export class User {
 
   @Column({ default: true })
   isActive!: boolean;
+
+  @Column({ nullable: true })
+  roleId?: string;
+
+  @ManyToOne(() => Role, role => role.users, { nullable: true })
+  @JoinColumn({ name: 'roleId' })
+  role?: Role;
 
   @CreateDateColumn()
   createdAt!: Date;
