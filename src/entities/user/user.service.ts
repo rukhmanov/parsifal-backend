@@ -53,6 +53,15 @@ export class UserService {
     return await this.userRepository.findOne({ where: { email } });
   }
 
+  async findByEmailAndAuthProvider(email: string, authProvider: 'google' | 'yandex' | 'local'): Promise<User | null> {
+    return await this.userRepository.findOne({ 
+      where: { 
+        email,
+        authProvider 
+      } 
+    });
+  }
+
   async updateResetToken(id: string, resetToken: string, resetTokenExpiry: Date): Promise<void> {
     await this.userRepository.update(id, {
       resetToken,

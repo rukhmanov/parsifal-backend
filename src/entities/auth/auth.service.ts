@@ -258,15 +258,10 @@ export class AuthService {
 
   // Метод для отправки запроса на восстановление пароля
   async forgotPassword(email: string): Promise<{ message: string }> {
-    const user = await this.userService.findByEmail(email);
+    // Ищем только локальных пользователей для восстановления пароля
+    const user = await this.userService.findByEmailAndAuthProvider(email, 'local');
     if (!user) {
       // Не раскрываем информацию о том, существует ли пользователь
-      return { message: 'Если аккаунт с таким email существует, на него будет отправлена ссылка для восстановления пароля' };
-    }
-
-    // Проверяем, что пользователь зарегистрирован через email (локальная регистрация)
-    if (user.authProvider !== 'local') {
-      // Не раскрываем информацию о способе регистрации для безопасности
       return { message: 'Если аккаунт с таким email существует, на него будет отправлена ссылка для восстановления пароля' };
     }
 
