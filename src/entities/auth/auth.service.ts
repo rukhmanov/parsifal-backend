@@ -42,7 +42,7 @@ export class AuthService {
   ) {}
 
   // Нормализация данных от Google
-  private normalizeGoogleData(googleUser: any): UnifiedUserData {
+  normalizeGoogleData(googleUser: any): UnifiedUserData {
     const firstName = googleUser.given_name || googleUser.firstName || googleUser.name?.split(' ')[0] || 'User';
     const lastName = googleUser.family_name || googleUser.lastName || googleUser.name?.split(' ')[1] || '';
     const displayName = googleUser.name || `${firstName} ${lastName}`.trim();
@@ -59,7 +59,7 @@ export class AuthService {
   }
 
   // Нормализация данных от Yandex
-  private normalizeYandexData(yandexUser: YandexUserInfo): UnifiedUserData {
+  normalizeYandexData(yandexUser: YandexUserInfo): UnifiedUserData {
     const firstName = yandexUser.first_name || yandexUser.real_name?.split(' ')[0] || 'User';
     const lastName = yandexUser.last_name || yandexUser.real_name?.split(' ')[1] || '';
     const displayName = yandexUser.display_name || yandexUser.real_name || `${firstName} ${lastName}`.trim();
@@ -79,7 +79,7 @@ export class AuthService {
   }
 
   // Единый метод для обработки пользователей от OAuth провайдеров
-  private async processOAuthUser(userData: UnifiedUserData): Promise<User> {
+  async processOAuthUser(userData: UnifiedUserData, shouldUpdate: boolean = true): Promise<User> {
     // Ищем существующего пользователя
     let user = await this.userService.findByEmailAndProvider(
       userData.email, 
@@ -88,14 +88,19 @@ export class AuthService {
     );
     
     if (user) {
-      // Обновляем данные существующего пользователя
-      const updatedUser = await this.userService.update(user.id, {
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        displayName: userData.displayName || `${userData.firstName} ${userData.lastName}`.trim(),
-        avatar: userData.avatar,
-      });
-      return updatedUser!;
+      // Обновляем данные существующего пользователя только если явно указано
+      if (shouldUpdate) {
+        const updatedUser = await this.userService.update(user.id, {
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          displayName: userData.displayName || `${userData.firstName} ${userData.lastName}`.trim(),
+          avatar: userData.avatar,
+        });
+        return updatedUser!;
+      } else {
+        // Возвращаем существующего пользователя без обновления
+        return user;
+      }
     } else {
       // Получаем роль пользователя по умолчанию
       const defaultRole = await this.roleService.getDefaultUserRole();
@@ -148,7 +153,8 @@ export class AuthService {
         });
         userInfo = response.data;
         const normalizedData = this.normalizeGoogleData(userInfo);
-        return await this.processOAuthUser(normalizedData);
+        // При валидации токена не обновляем данные пользователя
+        return await this.processOAuthUser(normalizedData, false);
       } else if (provider === 'yandex') {
         const response = await axios.get('https://login.yandex.ru/info', {
           headers: {
@@ -157,7 +163,8 @@ export class AuthService {
         });
         userInfo = response.data;
         const normalizedData = this.normalizeYandexData(userInfo);
-        return await this.processOAuthUser(normalizedData);
+        // При валидации токена не обновляем данные пользователя
+        return await this.processOAuthUser(normalizedData, false);
       }
       
       throw new Error('Unsupported provider');
@@ -264,6 +271,34 @@ export class AuthService {
     // Возвращаем пользователя без пароля
     const { password: _, ...userWithoutPassword } = user;
     return userWithoutPassword as User;
+  }
+
+  // Метод для явного обновления данных пользователя из OAuth провайдера
+  async updateUserFromOAuthProvider(userId: string, provider: 'google' | 'yandex'): Promise<User> {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.authProvider !== provider) {
+      throw new UnauthorizedException('Invalid provider for user');
+    }
+
+    try {
+      if (provider === 'google') {
+        // Для Google нужно получить access token из сессии или других источников
+        // Пока что возвращаем существующего пользователя
+        return user;
+      } else if (provider === 'yandex') {
+        // Для Yandex нужно получить access token из сессии или других источников
+        // Пока что возвращаем существующего пользователя
+        return user;
+      }
+      
+      throw new Error('Unsupported provider');
+    } catch (error) {
+      throw new UnauthorizedException(`Failed to update user from ${provider}`);
+    }
   }
 
   // Метод для отправки запроса на восстановление пароля

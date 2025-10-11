@@ -61,15 +61,15 @@ export class FilterService {
     const searchConditions = searchableFields.map(field => {
       switch (field.type) {
         case 'string':
-          return `LOWER("${entityAlias}"."${field.key}") LIKE LOWER(:searchTerm)`;
+          return `translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') LIKE translate(:searchTerm, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`;
         case 'number':
-          return `CAST("${entityAlias}"."${field.key}" AS TEXT) LIKE :searchTerm`;
+          return `CAST("${entityAlias}"."${field.key}" AS TEXT) ILIKE :searchTerm`;
         case 'boolean':
-          return `CAST("${entityAlias}"."${field.key}" AS TEXT) LIKE :searchTerm`;
+          return `CAST("${entityAlias}"."${field.key}" AS TEXT) ILIKE :searchTerm`;
         case 'date':
-          return `TO_CHAR("${entityAlias}"."${field.key}", 'YYYY-MM-DD') LIKE :searchTerm`;
+          return `TO_CHAR("${entityAlias}"."${field.key}", 'YYYY-MM-DD') ILIKE :searchTerm`;
         default:
-          return `LOWER("${entityAlias}"."${field.key}") LIKE LOWER(:searchTerm)`;
+          return `translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') LIKE translate(:searchTerm, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`;
       }
     });
 
@@ -95,7 +95,7 @@ export class FilterService {
 
       switch (field.type) {
         case 'string':
-          queryBuilder.andWhere(`LOWER("${entityAlias}"."${field.key}") LIKE LOWER(:${key})`, {
+          queryBuilder.andWhere(`translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') LIKE translate(:${key}, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`, {
             [key]: `%${value}%`
           });
           break;

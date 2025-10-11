@@ -317,6 +317,54 @@ export class AuthController {
     }
   }
 
+  @Post('update-from-provider')
+  async updateUserFromProvider(@Body() body: { accessToken: string, provider: 'google' | 'yandex' }): Promise<any> {
+    try {
+      const { accessToken, provider } = body;
+      
+      if (!accessToken || !provider) {
+        throw new Error('Access token and provider are required');
+      }
+
+      // Получаем пользователя с обновлением данных
+      let user: any;
+      
+      if (provider === 'google') {
+        const response = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        const normalizedData = this.authService.normalizeGoogleData(response.data);
+        user = await this.authService.processOAuthUser(normalizedData, true);
+      } else if (provider === 'yandex') {
+        const response = await axios.get('https://login.yandex.ru/info', {
+          headers: {
+            Authorization: `OAuth ${accessToken}`,
+          },
+        });
+        const normalizedData = this.authService.normalizeYandexData(response.data);
+        user = await this.authService.processOAuthUser(normalizedData, true);
+      } else {
+        throw new Error('Unsupported provider');
+      }
+
+      const jwtToken = await this.authService.generateJwtToken(user);
+      
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        displayName: user.displayName,
+        avatar: user.avatar,
+        jwtToken
+      };
+    } catch (error) {
+      throw new Error('Failed to update user from provider');
+    }
+  }
+
   // Эндпоинты для локальной аутентификации
   @Post('register')
   async register(@Body(ValidationPipe) registerDto: RegisterDto): Promise<{ user: any; token: string }> {
