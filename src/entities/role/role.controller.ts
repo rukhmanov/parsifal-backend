@@ -14,7 +14,7 @@ export interface UpdateRoleDto {
   permissionIds?: string[];
 }
 
-@Controller('api/roles')
+@Controller('roles')
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 

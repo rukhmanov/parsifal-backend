@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus }
 import { PermissionService } from './permission.service';
 import { Permission } from './permission.entity';
 
-@Controller('api/permissions')
+@Controller('permissions')
 export class PermissionController {
   constructor(private readonly permissionService: PermissionService) {}
 
