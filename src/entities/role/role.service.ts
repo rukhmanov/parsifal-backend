@@ -34,6 +34,22 @@ export class RoleService {
     });
   }
 
+  // Метод для получения роли пользователя по умолчанию
+  async getDefaultUserRole(): Promise<Role> {
+    let userRole = await this.findByName('Пользователь');
+    
+    if (!userRole) {
+      // Если роль не найдена, создаем её
+      userRole = await this.create({
+        name: 'Пользователь',
+        description: 'Базовые права пользователя',
+        isActive: true
+      });
+    }
+    
+    return userRole;
+  }
+
   async create(roleData: Partial<Role>, permissionIds?: string[]): Promise<Role> {
     const role = this.roleRepository.create(roleData);
     

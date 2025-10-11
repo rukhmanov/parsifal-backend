@@ -10,6 +10,7 @@ import { YandexStrategy } from './strategies/yandex.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { UserModule } from '../user/user.module';
 import { CommonModule } from '../../common/common.module';
+import { RoleModule } from '../role/role.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CommonModule } from '../../common/common.module';
     ConfigModule,
     UserModule,
     CommonModule,
+    RoleModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
