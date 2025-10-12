@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsStrongPassword } from '../../../common/validators/password.validator';
 
 export class RegisterDto {
   @IsEmail({}, { message: 'Некорректный email адрес' })
@@ -7,7 +8,7 @@ export class RegisterDto {
 
   @IsString({ message: 'Пароль должен быть строкой' })
   @IsNotEmpty({ message: 'Пароль обязателен' })
-  @MinLength(6, { message: 'Пароль должен содержать минимум 6 символов' })
+  @IsStrongPassword()
   password!: string;
 
   @IsString({ message: 'Имя должно быть строкой' })

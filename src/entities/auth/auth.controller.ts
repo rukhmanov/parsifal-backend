@@ -9,6 +9,7 @@ import { EmailNewService } from '../../common/email-new.service';
 import { UserService } from '../user/user.service';
 import { FilterQuery, FilterBody } from '../../common/decorators/filter.decorator';
 import { FilterRequestDto } from '../../common/dto/filter.dto';
+import { PasswordGeneratorService } from '../../common/services/password-generator.service';
 import axios from 'axios';
 
 export interface GoogleCallbackRequest extends Request {
@@ -21,6 +22,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly emailNewService: EmailNewService,
     private readonly userService: UserService,
+    private readonly passwordGeneratorService: PasswordGeneratorService,
   ) {}
 
   @Get('google')
@@ -421,6 +423,24 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body(ValidationPipe) resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
     return await this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+  }
+
+  // Эндпоинт для генерации случайного пароля
+  @Get('generate-password')
+  async generatePassword(@Query('length') length?: string): Promise<{ password: string; passwords?: string[] }> {
+    const passwordLength = length ? parseInt(length, 10) : 12;
+    
+    if (passwordLength < 8 || passwordLength > 50) {
+      throw new Error('Длина пароля должна быть от 8 до 50 символов');
+    }
+
+    const password = this.passwordGeneratorService.generatePassword(passwordLength);
+    const passwords = this.passwordGeneratorService.generateMultiplePasswords(3, passwordLength);
+    
+    return {
+      password,
+      passwords
+    };
   }
 
   // Эндпоинт для тестирования email сервиса (только для разработки)
