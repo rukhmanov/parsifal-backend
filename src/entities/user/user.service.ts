@@ -168,4 +168,48 @@ export class UserService {
     await this.userRepository.update(id, { avatar: photoUrl });
     return await this.userRepository.findOne({ where: { id } });
   }
+
+  // Получение статистики пользователей
+  async getUserStatistics(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    inactiveUsers: number;
+    usersByProvider: { provider: string; count: number }[];
+    usersByRole: { roleName: string; count: number }[];
+  }> {
+    const totalUsers = await this.userRepository.count();
+    const activeUsers = await this.userRepository.count({ where: { isActive: true } });
+    const inactiveUsers = totalUsers - activeUsers;
+
+    // Статистика по провайдерам
+    const usersByProvider = await this.userRepository
+      .createQueryBuilder('user')
+      .select('user.authProvider', 'provider')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('user.authProvider')
+      .getRawMany();
+
+    // Статистика по ролям
+    const usersByRole = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoin('user.role', 'role')
+      .select('COALESCE(role.name, \'Без роли\')', 'roleName')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('role.name')
+      .getRawMany();
+
+    return {
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+      usersByProvider: usersByProvider.map(item => ({
+        provider: item.provider,
+        count: parseInt(item.count)
+      })),
+      usersByRole: usersByRole.map(item => ({
+        roleName: item.roleName,
+        count: parseInt(item.count)
+      }))
+    };
+  }
 }

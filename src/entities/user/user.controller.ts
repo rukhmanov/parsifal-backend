@@ -62,4 +62,9 @@ export class UserController {
   async findAllWithFilters(@Body() request: FilterRequestDto): Promise<FilterResponseDto<User>> {
     return this.userService.findAllWithFilters(request);
   }
+
+  @Get('statistics')
+  async getUserStatistics() {
+    return this.userService.getUserStatistics();
+  }
 }

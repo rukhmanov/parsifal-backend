@@ -87,6 +87,18 @@ export class PermissionService {
         name: 'Удаление ролей',
         description: 'Возможность удалять роли',
         code: 'roles.delete'
+      },
+      // Пермишены для статистики
+      {
+        name: 'Просмотр статистики',
+        description: 'Возможность просматривать статистику системы',
+        code: 'statistics.view'
+      },
+      // Пермишены для файловой системы
+      {
+        name: 'Просмотр файловой системы',
+        description: 'Возможность просматривать файловую систему',
+        code: 'filesystem.view'
       }
     ];
 
