@@ -23,6 +23,7 @@ export class FileController {
     private readonly userService: UserService,
   ) {}
 
+
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
@@ -55,7 +56,12 @@ export class FileController {
       throw new Error('No photo uploaded');
     }
 
-    const userId = req.user.id;
+    const userId = req.user.sub;
+    
+    if (!userId) {
+      throw new Error('User ID not found in token');
+    }
+    
     const fileKey = `users/${userId}/profile-photo.${file.originalname.split('.').pop()}`;
     
     const fileUrl = await this.s3Service.uploadFile(file, fileKey);

@@ -3,10 +3,11 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { EmailService } from './email.service';
 import { EmailNewService } from './email-new.service';
 import { FilterService } from './services/filter.service';
+import { S3Service } from './services/s3.service';
 
 @Module({
   imports: [MailerModule],
-  providers: [EmailService, EmailNewService, FilterService],
-  exports: [EmailService, EmailNewService, FilterService],
+  providers: [EmailService, EmailNewService, FilterService, S3Service],
+  exports: [EmailService, EmailNewService, FilterService, S3Service],
 })
 export class CommonModule {}
