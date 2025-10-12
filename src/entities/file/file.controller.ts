@@ -9,11 +9,17 @@ import {
   Body,
   UseGuards,
   Request,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { S3Service } from '../../common/services/s3.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserService } from '../user/user.service';
+import { JwtPayload } from '../auth/auth.service';
+
+interface AuthenticatedRequest extends Request {
+  user: JwtPayload;
+}
 
 @Controller('files')
 @UseGuards(JwtAuthGuard)
@@ -50,10 +56,15 @@ export class FileController {
   @UseInterceptors(FileInterceptor('photo'))
   async uploadUserPhoto(
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     if (!file) {
       throw new Error('No photo uploaded');
+    }
+
+    // Проверяем, что пользователь аутентифицирован
+    if (!req.user) {
+      throw new Error('User not authenticated');
     }
 
     const userId = req.user.sub;
@@ -94,6 +105,28 @@ export class FileController {
     };
   }
 
+  @Get('download/:key')
+  async downloadFile(@Param('key') key: string, @Res() res: any) {
+    try {
+      // Получаем файл из S3
+      const fileData = await this.s3Service.getFile(key);
+      const fileName = key.split('/').pop() || 'file';
+      
+      // Устанавливаем заголовки для принудительного скачивания
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      
+      // Отправляем файл
+      res.send(fileData);
+    } catch (error) {
+      res.status(404).json({
+        success: false,
+        message: 'File not found',
+      });
+    }
+  }
+
   @Delete(':key')
   async deleteFile(@Param('key') key: string) {
     await this.s3Service.deleteFile(key);
@@ -109,6 +142,15 @@ export class FileController {
     return {
       success: true,
       message: 'Folder created successfully',
+    };
+  }
+
+  @Delete('folder/:path')
+  async deleteFolder(@Param('path') path: string) {
+    await this.s3Service.deleteFolder(path);
+    return {
+      success: true,
+      message: 'Folder deleted successfully',
     };
   }
 }

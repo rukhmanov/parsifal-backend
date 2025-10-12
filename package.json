@@ -12,7 +12,9 @@
     "start:prod": "node dist/main",
     "kill-port": "lsof -ti:3000 | xargs kill -9",
     "restart": "npm run kill-port && npm run start:dev",
-    "init-roles": "ts-node src/scripts/initialize-roles-permissions.ts"
+    "init-roles": "ts-node src/scripts/initialize-roles-permissions.ts",
+    "cleanup-undefined": "ts-node src/scripts/cleanup-undefined-folder.ts",
+    "check-files": "ts-node src/scripts/check-file-tree.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",
