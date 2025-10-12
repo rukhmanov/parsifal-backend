@@ -162,4 +162,10 @@ export class UserService {
   getFilterFields() {
     return this.userFilterFields;
   }
+
+  // Обновление фото пользователя
+  async updateUserPhoto(id: string, photoUrl: string): Promise<User | null> {
+    await this.userRepository.update(id, { avatar: photoUrl });
+    return await this.userRepository.findOne({ where: { id } });
+  }
 }

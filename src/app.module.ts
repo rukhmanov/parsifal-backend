@@ -9,6 +9,7 @@ import { AuthModule } from './entities/auth/auth.module';
 import { UserModule } from './entities/user/user.module';
 import { PermissionModule } from './entities/permission/permission.module';
 import { RoleModule } from './entities/role/role.module';
+import { FileModule } from './entities/file/file.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { RoleModule } from './entities/role/role.module';
     UserModule,
     PermissionModule,
     RoleModule,
+    FileModule,
   ],
   controllers: [AppController],
   providers: [AppService],
