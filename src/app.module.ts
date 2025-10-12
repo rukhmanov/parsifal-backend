@@ -10,6 +10,7 @@ import { UserModule } from './entities/user/user.module';
 import { PermissionModule } from './entities/permission/permission.module';
 import { RoleModule } from './entities/role/role.module';
 import { FileModule } from './entities/file/file.module';
+import { StatisticsModule } from './entities/statistics/statistics.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { FileModule } from './entities/file/file.module';
     PermissionModule,
     RoleModule,
     FileModule,
+    StatisticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

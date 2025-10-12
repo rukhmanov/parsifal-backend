@@ -63,8 +63,4 @@ export class UserController {
     return this.userService.findAllWithFilters(request);
   }
 
-  @Get('statistics')
-  async getUserStatistics() {
-    return this.userService.getUserStatistics();
-  }
 }
