@@ -11,6 +11,7 @@ import {
   Request,
   Res,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { S3Service } from '../../common/services/s3.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,6 +28,7 @@ export class FileController {
   constructor(
     private readonly s3Service: S3Service,
     private readonly userService: UserService,
+    private readonly configService: ConfigService,
   ) {}
 
 
@@ -124,6 +126,89 @@ export class FileController {
         success: false,
         message: 'File not found',
       });
+    }
+  }
+
+  @Delete('user-photo')
+  async deleteUserPhoto(@Request() req: AuthenticatedRequest) {
+    // Проверяем, что пользователь аутентифицирован
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
+
+    const userId = req.user.sub;
+    
+    if (!userId) {
+      throw new Error('User ID not found in token');
+    }
+
+    // Получаем текущего пользователя для проверки наличия фото
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (!user.avatar) {
+      return {
+        success: true,
+        message: 'User has no photo to delete',
+      };
+    }
+
+    // Извлекаем ключ файла из URL
+    const avatarUrl = user.avatar;
+    const bucketName = this.configService.get<string>('S3_BUCKET') || '';
+    const endpoint = this.configService.get<string>('S3_ENDPOINT') || '';
+    const expectedPrefix = `${endpoint}/${bucketName}/`;
+    
+    let fileKey: string;
+    
+    if (avatarUrl.startsWith(expectedPrefix)) {
+      fileKey = avatarUrl.substring(expectedPrefix.length);
+    } else {
+      // Fallback: старый способ
+      const urlParts = avatarUrl.split('/');
+      const bucketIndex = urlParts.findIndex(part => part.includes('parsifal-files'));
+      
+      if (bucketIndex === -1 || bucketIndex >= urlParts.length - 1) {
+        throw new Error('Invalid avatar URL format');
+      }
+
+      fileKey = urlParts.slice(bucketIndex + 1).join('/');
+    }
+    
+    try {
+      // Удаляем файл из S3
+      await this.s3Service.deleteFile(fileKey);
+      
+      // Удаляем папку пользователя, если она пуста
+      const userFolder = `users/${userId}`;
+      try {
+        await this.s3Service.deleteFolder(userFolder);
+      } catch (folderError) {
+        // Игнорируем ошибки удаления папки - возможно, она уже пуста или не существует
+      }
+      
+      // Обновляем пользователя в базе данных (удаляем ссылку на фото)
+      await this.userService.updateUserPhoto(userId, '');
+      
+      return {
+        success: true,
+        message: 'User photo deleted successfully',
+      };
+    } catch (error) {
+      // Если удаление файла не удалось, но пользователь существует, 
+      // все равно очищаем ссылку в БД
+      try {
+        await this.userService.updateUserPhoto(userId, '');
+      } catch (dbError) {
+        throw new Error('Failed to update user photo in database');
+      }
+      
+      return {
+        success: true,
+        message: 'User photo reference removed from database (file may not exist in storage)',
+      };
     }
   }
 

@@ -61,7 +61,6 @@ export class S3Service {
 
     try {
       await this.s3.deleteObject(deleteParams).promise();
-      this.logger.log(`File deleted successfully: ${key}`);
     } catch (error) {
       this.logger.error(`Error deleting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
@@ -93,17 +92,14 @@ export class S3Service {
           },
         };
 
-        const deleteResult = await this.s3.deleteObjects(deleteParams).promise();
-        this.logger.log(`Deleted ${deleteResult.Deleted?.length || 0} objects from folder: ${folderKey}`);
-        
-        if (deleteResult.Errors && deleteResult.Errors.length > 0) {
-          this.logger.error(`Errors deleting objects: ${JSON.stringify(deleteResult.Errors)}`);
-        }
-      } else {
-        this.logger.log(`No objects found in folder: ${folderKey}`);
+        await this.s3.deleteObjects(deleteParams).promise();
       }
     } catch (error) {
       this.logger.error(`Error deleting folder: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Не бросаем ошибку, если папка не существует - это нормально
+      if (error instanceof Error && error.message.includes('NoSuchBucket')) {
+        return;
+      }
       throw error;
     }
   }
