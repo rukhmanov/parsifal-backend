@@ -29,7 +29,6 @@ export class EmailService {
 
     try {
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Password reset email sent successfully:', info.messageId);
     } catch (error) {
       console.error('Error sending email:', error);
       throw new Error('Не удалось отправить email для сброса пароля');
@@ -181,7 +180,6 @@ ${resetUrl}
   async testEmailConnection(): Promise<boolean> {
     try {
       await this.transporter.verify();
-      console.log('✅ Email service is ready');
       return true;
     } catch (error) {
       console.error('❌ Email service error:', error);

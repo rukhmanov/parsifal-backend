@@ -24,17 +24,12 @@ async function bootstrap(): Promise<void> {
         'http://192.168.1.31:8100'
       ];
       
-      console.log('CORS - Request origin:', origin);
-      console.log('CORS - Allowed origins:', allowedOrigins);
-      
       // Разрешаем запросы без origin (например, из Postman)
       if (!origin) return callback(null, true);
       
       if (allowedOrigins.indexOf(origin) !== -1) {
-        console.log('CORS - Origin allowed:', origin);
         callback(null, true);
       } else {
-        console.log('CORS - Origin blocked:', origin);
         callback(new Error('Not allowed by CORS'));
       }
     },
