@@ -24,7 +24,9 @@ export class FilterService {
   ): SelectQueryBuilder<T> {
     // Глобальный поиск
     if (request.search) {
-      this.applyGlobalSearch(queryBuilder, request.search, entityFields, entityAlias);
+      // Получаем searchFields из filters, если они там есть
+      const searchFields = request.searchFields || (request.filters && request.filters.searchFields);
+      this.applyGlobalSearch(queryBuilder, request.search, entityFields, entityAlias, searchFields);
     }
 
     // Фильтрация по полям
@@ -52,16 +54,28 @@ export class FilterService {
     queryBuilder: SelectQueryBuilder<T>,
     searchTerm: string,
     entityFields: FilterField[],
-    entityAlias: string
+    entityAlias: string,
+    searchFields?: string[]
   ): void {
-    const searchableFields = entityFields.filter(field => field.searchable !== false);
+    // Если указаны конкретные поля для поиска, используем только их
+    let searchableFields: FilterField[];
+    
+    if (searchFields && searchFields.length > 0) {
+      // Фильтруем только по указанным полям
+      searchableFields = entityFields.filter(field => 
+        searchFields.includes(field.key) && field.searchable !== false
+      );
+    } else {
+      // Используем все поисковые поля
+      searchableFields = entityFields.filter(field => field.searchable !== false);
+    }
     
     if (searchableFields.length === 0) return;
 
     const searchConditions = searchableFields.map(field => {
       switch (field.type) {
         case 'string':
-          return `translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') LIKE translate(:searchTerm, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`;
+          return `translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') ILIKE translate(:searchTerm, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`;
         case 'number':
           return `CAST("${entityAlias}"."${field.key}" AS TEXT) ILIKE :searchTerm`;
         case 'boolean':
@@ -69,7 +83,7 @@ export class FilterService {
         case 'date':
           return `TO_CHAR("${entityAlias}"."${field.key}", 'YYYY-MM-DD') ILIKE :searchTerm`;
         default:
-          return `translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') LIKE translate(:searchTerm, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`;
+          return `translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') ILIKE translate(:searchTerm, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`;
       }
     });
 
@@ -90,12 +104,15 @@ export class FilterService {
     Object.entries(filters).forEach(([key, value]) => {
       if (value === null || value === undefined || value === '') return;
 
+      // Пропускаем searchFields, так как они обрабатываются отдельно
+      if (key === 'searchFields') return;
+
       const field = entityFields.find(f => f.key === key);
       if (!field) return;
 
       switch (field.type) {
         case 'string':
-          queryBuilder.andWhere(`translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') LIKE translate(:${key}, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`, {
+          queryBuilder.andWhere(`translate("${entityAlias}"."${field.key}", 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя') ILIKE translate(:${key}, 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя')`, {
             [key]: `%${value}%`
           });
           break;

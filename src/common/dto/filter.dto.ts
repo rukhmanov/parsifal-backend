@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsObject, IsNumber, IsEnum, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsObject, IsNumber, IsEnum, Min, Max, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum SortDirection {
@@ -35,6 +35,11 @@ export class FilterRequestDto {
   @IsOptional()
   @IsObject()
   filters?: Record<string, any>;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  searchFields?: string[];
 
   @IsOptional()
   @Type(() => SortDto)

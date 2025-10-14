@@ -40,6 +40,14 @@ export const FilterQuery = createParamDecorator(
       filterRequest.filters = filters;
     }
 
+    // Поля для поиска
+    if (query.searchFields) {
+      const searchFields = Array.isArray(query.searchFields) 
+        ? query.searchFields 
+        : [query.searchFields];
+      filterRequest.searchFields = searchFields;
+    }
+
     // Сортировка
     if (query['sort[field]'] && query['sort[direction]']) {
       filterRequest.sort = {
