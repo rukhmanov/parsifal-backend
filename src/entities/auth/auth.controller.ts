@@ -196,7 +196,7 @@ export class AuthController {
           name: user.displayName || `${user.firstName} ${user.lastName}`,
           given_name: user.firstName,
           family_name: user.lastName,
-          picture: user.avatar,
+          picture: user.avatar, // Аватар из БД
           verified_email: true,
           locale: 'ru'
         };
@@ -205,13 +205,22 @@ export class AuthController {
         const user = await this.authService.validateUserByAccessToken(accessToken, 'google');
         const jwtToken = await this.authService.generateJwtToken(user);
         
+        // Получаем аватар из Google, если его нет в БД
+        let avatarUrl = user.avatar;
+        if (!avatarUrl) {
+          const googleUserInfo = await this.authService.getGoogleUserInfoFromProvider(accessToken);
+          if (googleUserInfo.picture) {
+            avatarUrl = googleUserInfo.picture;
+          }
+        }
+        
         return {
           id: user.id,
           email: user.email,
           name: user.displayName || `${user.firstName} ${user.lastName}`,
           given_name: user.firstName,
           family_name: user.lastName,
-          picture: user.avatar,
+          picture: avatarUrl, // Аватар из БД или из Google
           verified_email: true,
           locale: 'ru',
           jwtToken // Возвращаем JWT токен для клиента
@@ -293,7 +302,7 @@ export class AuthController {
           first_name: user.firstName,
           last_name: user.lastName,
           display_name: user.displayName,
-          default_avatar_id: user.avatar ? user.avatar.split('/').pop() : undefined,
+          default_avatar_id: user.avatar || undefined, // Возвращаем полный URL аватара из БД
           real_name: user.displayName || `${user.firstName} ${user.lastName}`,
           login: user.email.split('@')[0]
         };
@@ -302,13 +311,22 @@ export class AuthController {
         const user = await this.authService.validateUserByAccessToken(accessToken, 'yandex');
         const jwtToken = await this.authService.generateJwtToken(user);
         
+        // Получаем аватар из Yandex, если его нет в БД
+        let avatarUrl = user.avatar;
+        if (!avatarUrl) {
+          const yandexUserInfo = await this.authService.getYandexUserInfoFromProvider(accessToken);
+          if (yandexUserInfo.default_avatar_id && !yandexUserInfo.is_avatar_empty) {
+            avatarUrl = `https://avatars.yandex.net/get-yapic/${yandexUserInfo.default_avatar_id}/islands-200`;
+          }
+        }
+        
         return {
           id: user.id,
           default_email: user.email,
           first_name: user.firstName,
           last_name: user.lastName,
           display_name: user.displayName,
-          default_avatar_id: user.avatar ? user.avatar.split('/').pop() : undefined,
+          default_avatar_id: avatarUrl || undefined, // Аватар из БД или из Yandex
           real_name: user.displayName || `${user.firstName} ${user.lastName}`,
           login: user.email.split('@')[0],
           jwtToken // Возвращаем JWT токен для клиента

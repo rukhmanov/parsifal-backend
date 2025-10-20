@@ -59,6 +59,7 @@ export class FileController {
   async uploadUserPhoto(
     @UploadedFile() file: Express.Multer.File,
     @Request() req: AuthenticatedRequest,
+    @Body('userId') targetUserId?: string,
   ) {
     if (!file) {
       throw new Error('No photo uploaded');
@@ -69,10 +70,19 @@ export class FileController {
       throw new Error('User not authenticated');
     }
 
-    const userId = req.user.sub;
+    // Определяем ID пользователя для загрузки фото
+    let userId: string;
     
-    if (!userId) {
-      throw new Error('User ID not found in token');
+    if (targetUserId) {
+      // Если передан userId в теле запроса, используем его (для админки)
+      userId = targetUserId;
+    } else {
+      // Иначе используем ID из JWT токена (для редактирования собственного профиля)
+      userId = req.user.sub;
+      
+      if (!userId) {
+        throw new Error('User ID not found in token');
+      }
     }
     
     const fileKey = `users/${userId}/profile-photo.${file.originalname.split('.').pop()}`;

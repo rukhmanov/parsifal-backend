@@ -78,6 +78,34 @@ export class AuthService {
     };
   }
 
+  // Получение информации о пользователе напрямую от Yandex
+  async getYandexUserInfoFromProvider(accessToken: string): Promise<any> {
+    try {
+      const response = await axios.get('https://login.yandex.ru/info', {
+        headers: {
+          Authorization: `OAuth ${accessToken}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to get user info from Yandex');
+    }
+  }
+
+  // Получение информации о пользователе напрямую от Google
+  async getGoogleUserInfoFromProvider(accessToken: string): Promise<any> {
+    try {
+      const response = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to get user info from Google');
+    }
+  }
+
   // Единый метод для обработки пользователей от OAuth провайдеров
   async processOAuthUser(userData: UnifiedUserData, shouldUpdate: boolean = true): Promise<User> {
     // Ищем существующего пользователя
