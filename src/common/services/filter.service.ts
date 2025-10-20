@@ -107,6 +107,27 @@ export class FilterService {
       // Пропускаем searchFields, так как они обрабатываются отдельно
       if (key === 'searchFields') return;
 
+      // Обрабатываем поля диапазона дат (заканчивающиеся на _from или _to)
+      if (key.endsWith('_from') || key.endsWith('_to')) {
+        const baseFieldName = key.replace(/_from$|_to$/, '');
+        const field = entityFields.find(f => f.key === baseFieldName);
+        
+        if (field && field.type === 'date') {
+          const isFrom = key.endsWith('_from');
+          const isTo = key.endsWith('_to');
+          
+          if (isFrom) {
+            queryBuilder.andWhere(`"${entityAlias}"."${field.key}" >= :${key}`, { [key]: value });
+          } else if (isTo) {
+            // Добавляем время 23:59:59 для включения всего дня
+            const toDate = new Date(value);
+            toDate.setHours(23, 59, 59, 999);
+            queryBuilder.andWhere(`"${entityAlias}"."${field.key}" <= :${key}`, { [key]: toDate });
+          }
+          return;
+        }
+      }
+
       const field = entityFields.find(f => f.key === key);
       if (!field) return;
 
@@ -128,7 +149,20 @@ export class FilterService {
           queryBuilder.andWhere(`"${entityAlias}"."${field.key}" = :${key}`, { [key]: boolValue });
           break;
         case 'date':
-          if (value instanceof Date) {
+          // Обрабатываем диапазон дат (объект с from и to)
+          if (typeof value === 'object' && value !== null && (value.from || value.to)) {
+            if (value.from) {
+              queryBuilder.andWhere(`"${entityAlias}"."${field.key}" >= :${key}_from`, { [`${key}_from`]: value.from });
+            }
+            if (value.to) {
+              // Добавляем время 23:59:59 для включения всего дня
+              const toDate = new Date(value.to);
+              toDate.setHours(23, 59, 59, 999);
+              queryBuilder.andWhere(`"${entityAlias}"."${field.key}" <= :${key}_to`, { [`${key}_to`]: toDate });
+            }
+          }
+          // Обрабатываем одиночную дату
+          else if (value instanceof Date) {
             queryBuilder.andWhere(`DATE("${entityAlias}"."${field.key}") = DATE(:${key})`, { [key]: value });
           } else if (typeof value === 'string') {
             queryBuilder.andWhere(`DATE("${entityAlias}"."${field.key}") = DATE(:${key})`, { [key]: value });
@@ -156,7 +190,8 @@ export class FilterService {
 
     const direction = sort.direction.toUpperCase() as 'ASC' | 'DESC';
     
-    queryBuilder.orderBy(`"${entityAlias}"."${field.key}"`, direction);
+    // Используем addOrderBy для добавления сортировки без конфликтов
+    queryBuilder.addOrderBy(`${entityAlias}.${field.key}`, direction);
   }
 
   /**

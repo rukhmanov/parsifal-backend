@@ -66,6 +66,11 @@ export class UserController {
   ): Promise<User | null> {
     let updateData = { ...userData };
     
+    // Преобразуем строковые значения в правильные типы
+    if (typeof updateData.isActive === 'string') {
+      updateData.isActive = updateData.isActive === 'true';
+    }
+    
     // Если загружено фото, обрабатываем его
     if (photo) {
       const fileKey = `users/${id}/profile-photo.${photo.originalname.split('.').pop()}`;
