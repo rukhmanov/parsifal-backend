@@ -227,7 +227,7 @@ export class AuthService {
     try {
       const payload = await this.verifyJwtToken(token);
       
-      // Получаем пользователя из БД
+      // Получаем пользователя из БД с загрузкой связанной роли
       const user = await this.userService.findById(payload.sub);
       if (!user) {
         throw new UnauthorizedException('User not found');

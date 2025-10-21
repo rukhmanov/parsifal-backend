@@ -7,6 +7,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailNewService } from '../../common/email-new.service';
 import { UserService } from '../user/user.service';
+import { User } from '../user/user.entity';
 import { FilterQuery, FilterBody } from '../../common/decorators/filter.decorator';
 import { FilterRequestDto } from '../../common/dto/filter.dto';
 import { PasswordGeneratorService } from '../../common/services/password-generator.service';
@@ -141,7 +142,22 @@ export class AuthController {
   @Get('profile')
   @UseGuards(AuthGuard('jwt'))
   async getProfile(@Req() req: Request): Promise<any> {
-    return req.user;
+    const user = req.user as User;
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      displayName: user.displayName,
+      avatar: user.avatar,
+      authProvider: user.authProvider,
+      providerId: user.providerId,
+      isActive: user.isActive,
+      roleId: user.roleId,
+      role: user.role ? { id: user.role.id, name: user.role.name } : null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
   }
 
   @Post('google/token')
@@ -198,7 +214,9 @@ export class AuthController {
           family_name: user.lastName,
           picture: user.avatar, // Аватар из БД
           verified_email: true,
-          locale: 'ru'
+          locale: 'ru',
+          roleId: user.roleId,
+          role: user.role ? { id: user.role.id, name: user.role.name } : null
         };
       } else {
         // Это Google access token, используем новую единую логику
@@ -223,6 +241,8 @@ export class AuthController {
           picture: avatarUrl, // Аватар из БД или из Google
           verified_email: true,
           locale: 'ru',
+          roleId: user.roleId,
+          role: user.role ? { id: user.role.id, name: user.role.name } : null,
           jwtToken // Возвращаем JWT токен для клиента
         };
       }
@@ -304,7 +324,9 @@ export class AuthController {
           display_name: user.displayName,
           default_avatar_id: user.avatar || undefined, // Возвращаем полный URL аватара из БД
           real_name: user.displayName || `${user.firstName} ${user.lastName}`,
-          login: user.email.split('@')[0]
+          login: user.email.split('@')[0],
+          roleId: user.roleId,
+          role: user.role ? { id: user.role.id, name: user.role.name } : null
         };
       } else {
         // Это Yandex access token, используем новую единую логику
@@ -329,6 +351,8 @@ export class AuthController {
           default_avatar_id: avatarUrl || undefined, // Аватар из БД или из Yandex
           real_name: user.displayName || `${user.firstName} ${user.lastName}`,
           login: user.email.split('@')[0],
+          roleId: user.roleId,
+          role: user.role ? { id: user.role.id, name: user.role.name } : null,
           jwtToken // Возвращаем JWT токен для клиента
         };
       }

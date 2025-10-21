@@ -35,6 +35,7 @@ export class UserService {
         providerId,
         authProvider,
       },
+      relations: ['role']
     });
   }
 
@@ -51,7 +52,10 @@ export class UserService {
 
   async update(id: string, userData: Partial<User>): Promise<User | null> {
     await this.userRepository.update(id, userData);
-    return await this.userRepository.findOne({ where: { id } });
+    return await this.userRepository.findOne({ 
+      where: { id },
+      relations: ['role']
+    });
   }
 
   async delete(id: string): Promise<void> {
@@ -59,7 +63,10 @@ export class UserService {
   }
 
   async findById(id: string): Promise<User | null> {
-    return await this.userRepository.findOne({ where: { id } });
+    return await this.userRepository.findOne({ 
+      where: { id },
+      relations: ['role']
+    });
   }
 
   async findByEmail(email: string): Promise<User | null> {
