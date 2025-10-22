@@ -52,9 +52,13 @@ export class UserService {
 
   async update(id: string, userData: Partial<User>): Promise<User | null> {
     await this.userRepository.update(id, userData);
+    
+    // Принудительно перезагружаем пользователя с обновленными связями
+    // Используем cache: false чтобы избежать проблем с кэшированием
     return await this.userRepository.findOne({ 
       where: { id },
-      relations: ['role']
+      relations: ['role'],
+      cache: false
     });
   }
 
