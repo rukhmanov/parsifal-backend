@@ -5,10 +5,11 @@ import { EmailNewService } from './email-new.service';
 import { FilterService } from './services/filter.service';
 import { S3Service } from './services/s3.service';
 import { PasswordGeneratorService } from './services/password-generator.service';
+import { PermissionsGuard } from './guards/permissions.guard';
 
 @Module({
   imports: [MailerModule],
-  providers: [EmailService, EmailNewService, FilterService, S3Service, PasswordGeneratorService],
-  exports: [EmailService, EmailNewService, FilterService, S3Service, PasswordGeneratorService],
+  providers: [EmailService, EmailNewService, FilterService, S3Service, PasswordGeneratorService, PermissionsGuard],
+  exports: [EmailService, EmailNewService, FilterService, S3Service, PasswordGeneratorService, PermissionsGuard],
 })
 export class CommonModule {}

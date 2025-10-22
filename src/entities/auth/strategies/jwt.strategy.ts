@@ -29,10 +29,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid token payload');
     }
     
-    // Загружаем полные данные пользователя из базы данных с ролью
+    // Загружаем полные данные пользователя из базы данных с ролью и пермишенами
     const user = await this.userService.findById(payload.sub);
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+    
+    // Если у пользователя есть роль, загружаем её с пермишенами
+    if (user.roleId) {
+      const userWithRole = await this.userService.findById(payload.sub);
+      if (userWithRole && userWithRole.role) {
+        return userWithRole;
+      }
     }
     
     return user;

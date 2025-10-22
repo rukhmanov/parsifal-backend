@@ -223,14 +223,8 @@ export class AuthController {
         const user = await this.authService.validateUserByAccessToken(accessToken, 'google');
         const jwtToken = await this.authService.generateJwtToken(user);
         
-        // Получаем аватар из Google, если его нет в БД
-        let avatarUrl = user.avatar;
-        if (!avatarUrl) {
-          const googleUserInfo = await this.authService.getGoogleUserInfoFromProvider(accessToken);
-          if (googleUserInfo.picture) {
-            avatarUrl = googleUserInfo.picture;
-          }
-        }
+        // Используем аватар из БД, если он есть
+        const avatarUrl = user.avatar;
         
         return {
           id: user.id,

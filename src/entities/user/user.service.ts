@@ -35,7 +35,7 @@ export class UserService {
         providerId,
         authProvider,
       },
-      relations: ['role']
+      relations: ['role', 'role.permissions']
     });
   }
 
@@ -57,7 +57,7 @@ export class UserService {
     // Используем cache: false чтобы избежать проблем с кэшированием
     return await this.userRepository.findOne({ 
       where: { id },
-      relations: ['role'],
+      relations: ['role', 'role.permissions'],
       cache: false
     });
   }
@@ -69,7 +69,7 @@ export class UserService {
   async findById(id: string): Promise<User | null> {
     return await this.userRepository.findOne({ 
       where: { id },
-      relations: ['role']
+      relations: ['role', 'role.permissions']
     });
   }
 
@@ -113,11 +113,28 @@ export class UserService {
     });
   }
 
+  // Реактивация пользователя
+  async reactivateUser(id: string): Promise<User | null> {
+    const user = await this.findById(id);
+    if (!user) {
+      return null;
+    }
+
+    await this.userRepository.update(id, { isActive: true });
+    
+    // Возвращаем обновленного пользователя с связями
+    return await this.userRepository.findOne({ 
+      where: { id },
+      relations: ['role', 'role.permissions'],
+      cache: false
+    });
+  }
+
   // Получение всех пользователей (для админ панели)
   async findAll(): Promise<User[]> {
     return await this.userRepository.find({
       select: ['id', 'email', 'firstName', 'lastName', 'displayName', 'avatar', 'authProvider', 'roleId', 'isActive', 'createdAt', 'updatedAt'],
-      relations: ['role'],
+      relations: ['role', 'role.permissions'],
       order: { createdAt: 'DESC' }
     });
   }

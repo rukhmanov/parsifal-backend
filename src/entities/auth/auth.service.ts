@@ -181,6 +181,21 @@ export class AuthService {
         });
         userInfo = response.data;
         const normalizedData = this.normalizeGoogleData(userInfo);
+        
+        // Проверяем, есть ли пользователь в БД
+        const existingUser = await this.userService.findByEmailAndProvider(
+          normalizedData.email, 
+          normalizedData.providerId, 
+          normalizedData.authProvider
+        );
+        
+        if (existingUser && !existingUser.avatar && normalizedData.avatar) {
+          // Если пользователь есть, но нет аватара, обновляем только аватар
+          await this.userService.update(existingUser.id, { avatar: normalizedData.avatar });
+          const updatedUser = await this.userService.findById(existingUser.id);
+          return updatedUser!;
+        }
+        
         // При валидации токена не обновляем данные пользователя
         return await this.processOAuthUser(normalizedData, false);
       } else if (provider === 'yandex') {
