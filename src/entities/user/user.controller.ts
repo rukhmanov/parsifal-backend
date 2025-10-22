@@ -75,6 +75,8 @@ export class UserController {
     // Проверяем самообновление после обработки FileInterceptor
     const user = req.user;
     if (user && user.id === id) {
+      console.log('=== Self-update detected ===');
+      
       // Это самообновление - проверяем разрешенные поля
       const currentUser = await this.userService.findById(id);
       if (!currentUser) {
@@ -84,12 +86,32 @@ export class UserController {
       const allowedFields = ['firstName', 'lastName', 'displayName', 'avatar'];
       const restrictedFields = ['email', 'roleId', 'isActive', 'authProvider', 'providerId'];
 
-      // Проверяем, что не изменяются запрещенные поля
+      console.log('Current user data:', {
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        displayName: currentUser.displayName,
+        roleId: currentUser.roleId,
+        isActive: currentUser.isActive
+      });
+
+      // Проверяем, что не изменяются запрещенные поля (только если они действительно изменились)
       for (const field of restrictedFields) {
-        if (userData.hasOwnProperty(field)) {
+        if (field in userData) {
           const currentValue = currentUser[field as keyof User];
-          const newValue = userData[field as keyof UpdateUserDto];
+          let newValue = userData[field as keyof UpdateUserDto];
           
+          // Преобразуем строковые значения для корректного сравнения
+          if (field === 'isActive' && typeof newValue === 'string') {
+            newValue = newValue === 'true' as any;
+          }
+          
+          console.log(`Checking restricted field ${field}:`, {
+            current: currentValue,
+            new: newValue,
+            changed: currentValue !== newValue
+          });
+          
+          // Проверяем только если значение действительно изменилось
           if (currentValue !== newValue) {
             throw new ForbiddenException(`Нельзя изменять поле: ${field}`);
           }
@@ -99,18 +121,35 @@ export class UserController {
       // Проверяем, что изменяется хотя бы одно разрешенное поле
       const changedFields: string[] = [];
       for (const field of allowedFields) {
-        const currentValue = currentUser[field as keyof User];
-        const newValue = userData[field as keyof UpdateUserDto];
-        
-        if (userData.hasOwnProperty(field) && currentValue !== newValue) {
-          changedFields.push(field);
+        if (field in userData) {
+          const currentValue = currentUser[field as keyof User];
+          let newValue = userData[field as keyof UpdateUserDto];
+          
+          // Преобразуем строковые значения для корректного сравнения
+          if (field === 'isActive' && typeof newValue === 'string') {
+            newValue = newValue === 'true' as any;
+          }
+          
+          console.log(`Checking allowed field ${field}:`, {
+            current: currentValue,
+            new: newValue,
+            changed: currentValue !== newValue
+          });
+          
+          if (currentValue !== newValue) {
+            changedFields.push(field);
+          }
         }
       }
+
+      console.log('Changed fields:', changedFields);
+      console.log('Photo uploaded:', !!photo);
 
       if (changedFields.length === 0 && !photo) {
         throw new ForbiddenException('Необходимо указать хотя бы одно разрешенное поле для обновления');
       }
 
+      console.log('Self-update validation passed');
       // Устанавливаем флаг, что самообновление разрешено
       req.selfUpdateAllowed = true;
     }
