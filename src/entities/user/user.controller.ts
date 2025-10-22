@@ -50,16 +50,8 @@ export class UserController {
   }
 
   @Put(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() userData: UpdateUserDto
-  ): Promise<User | null> {
-    return this.userService.update(id, userData);
-  }
-
-  @Put(':id/with-photo')
   @UseInterceptors(FileInterceptor('photo'))
-  async updateWithPhoto(
+  async update(
     @Param('id') id: string,
     @Body() userData: UpdateUserDto,
     @UploadedFile() photo?: Express.Multer.File
