@@ -206,37 +206,55 @@ export class AuthController {
       if (accessToken.startsWith('eyJ')) {
         // Это JWT токен от нашего бэкенда, декодируем его
         const user = await this.authService.validateJwtToken(accessToken);
+        const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
+        
+        if (!userWithPermissions) {
+          throw new Error('User not found');
+        }
+
+        const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+        
         return {
-          id: user.id,
-          email: user.email,
-          name: user.displayName || `${user.firstName} ${user.lastName}`,
-          given_name: user.firstName,
-          family_name: user.lastName,
-          picture: user.avatar, // Аватар из БД
+          id: formattedResponse.id,
+          email: formattedResponse.email,
+          name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
+          given_name: formattedResponse.firstName,
+          family_name: formattedResponse.lastName,
+          picture: formattedResponse.avatar,
           verified_email: true,
           locale: 'ru',
-          roleId: user.roleId,
-          role: user.role ? { id: user.role.id, name: user.role.name } : null
+          roleId: formattedResponse.roleId,
+          role: formattedResponse.role,
+          permissions: formattedResponse.permissions
         };
       } else {
         // Это Google access token, используем новую единую логику
         const user = await this.authService.validateUserByAccessToken(accessToken, 'google');
+        const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
+        
+        if (!userWithPermissions) {
+          throw new Error('User not found');
+        }
+
         const jwtToken = await this.authService.generateJwtToken(user);
         
         // Используем аватар из БД, если он есть
         const avatarUrl = user.avatar;
+
+        const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
         return {
-          id: user.id,
-          email: user.email,
-          name: user.displayName || `${user.firstName} ${user.lastName}`,
-          given_name: user.firstName,
-          family_name: user.lastName,
-          picture: avatarUrl, // Аватар из БД или из Google
+          id: formattedResponse.id,
+          email: formattedResponse.email,
+          name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
+          given_name: formattedResponse.firstName,
+          family_name: formattedResponse.lastName,
+          picture: avatarUrl,
           verified_email: true,
           locale: 'ru',
-          roleId: user.roleId,
-          role: user.role ? { id: user.role.id, name: user.role.name } : null,
+          roleId: formattedResponse.roleId,
+          role: formattedResponse.role,
+          permissions: formattedResponse.permissions,
           jwtToken // Возвращаем JWT токен для клиента
         };
       }
@@ -310,21 +328,36 @@ export class AuthController {
       if (accessToken.startsWith('eyJ')) {
         // Это JWT токен от нашего бэкенда, декодируем его
         const user = await this.authService.validateJwtToken(accessToken);
+        const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
+        
+        if (!userWithPermissions) {
+          throw new Error('User not found');
+        }
+
+        const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+        
         return {
-          id: user.id,
-          default_email: user.email,
-          first_name: user.firstName,
-          last_name: user.lastName,
-          display_name: user.displayName,
-          default_avatar_id: user.avatar || undefined, // Возвращаем полный URL аватара из БД
-          real_name: user.displayName || `${user.firstName} ${user.lastName}`,
-          login: user.email.split('@')[0],
-          roleId: user.roleId,
-          role: user.role ? { id: user.role.id, name: user.role.name } : null
+          id: formattedResponse.id,
+          default_email: formattedResponse.email,
+          first_name: formattedResponse.firstName,
+          last_name: formattedResponse.lastName,
+          display_name: formattedResponse.displayName,
+          default_avatar_id: formattedResponse.avatar || undefined,
+          real_name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
+          login: formattedResponse.email.split('@')[0],
+          roleId: formattedResponse.roleId,
+          role: formattedResponse.role,
+          permissions: formattedResponse.permissions
         };
       } else {
         // Это Yandex access token, используем новую единую логику
         const user = await this.authService.validateUserByAccessToken(accessToken, 'yandex');
+        const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
+        
+        if (!userWithPermissions) {
+          throw new Error('User not found');
+        }
+
         const jwtToken = await this.authService.generateJwtToken(user);
         
         // Получаем аватар из Yandex, если его нет в БД
@@ -335,18 +368,21 @@ export class AuthController {
             avatarUrl = `https://avatars.yandex.net/get-yapic/${yandexUserInfo.default_avatar_id}/islands-200`;
           }
         }
+
+        const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
         return {
-          id: user.id,
-          default_email: user.email,
-          first_name: user.firstName,
-          last_name: user.lastName,
-          display_name: user.displayName,
-          default_avatar_id: avatarUrl || undefined, // Аватар из БД или из Yandex
-          real_name: user.displayName || `${user.firstName} ${user.lastName}`,
-          login: user.email.split('@')[0],
-          roleId: user.roleId,
-          role: user.role ? { id: user.role.id, name: user.role.name } : null,
+          id: formattedResponse.id,
+          default_email: formattedResponse.email,
+          first_name: formattedResponse.firstName,
+          last_name: formattedResponse.lastName,
+          display_name: formattedResponse.displayName,
+          default_avatar_id: avatarUrl || undefined,
+          real_name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
+          login: formattedResponse.email.split('@')[0],
+          roleId: formattedResponse.roleId,
+          role: formattedResponse.role,
+          permissions: formattedResponse.permissions,
           jwtToken // Возвращаем JWT токен для клиента
         };
       }
@@ -389,13 +425,25 @@ export class AuthController {
 
       const jwtToken = await this.authService.generateJwtToken(user);
       
+      // Получаем пользователя с ролями и пермишенами
+      const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
+      
+      if (!userWithPermissions) {
+        throw new Error('User not found');
+      }
+
+      const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+      
       return {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        displayName: user.displayName,
-        avatar: user.avatar,
+        id: formattedResponse.id,
+        email: formattedResponse.email,
+        firstName: formattedResponse.firstName,
+        lastName: formattedResponse.lastName,
+        displayName: formattedResponse.displayName,
+        avatar: formattedResponse.avatar,
+        roleId: formattedResponse.roleId,
+        role: formattedResponse.role,
+        permissions: formattedResponse.permissions,
         jwtToken
       };
     } catch (error) {
@@ -409,18 +457,30 @@ export class AuthController {
     const user = await this.authService.register(registerDto);
     const token = await this.authService.generateJwtToken(user);
     
+    // Получаем пользователя с ролями и пермишенами
+    const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
+    
+    if (!userWithPermissions) {
+      throw new Error('User not found');
+    }
+
+    const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+    
     return {
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        displayName: user.displayName,
-        avatar: user.avatar,
+        id: formattedResponse.id,
+        email: formattedResponse.email,
+        firstName: formattedResponse.firstName,
+        lastName: formattedResponse.lastName,
+        displayName: formattedResponse.displayName,
+        avatar: formattedResponse.avatar,
         authProvider: user.authProvider,
         isActive: user.isActive,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        roleId: formattedResponse.roleId,
+        role: formattedResponse.role,
+        permissions: formattedResponse.permissions
       },
       token,
     };
@@ -432,18 +492,30 @@ export class AuthController {
     const user = req.user as any;
     const token = await this.authService.generateJwtToken(user);
     
+    // Получаем пользователя с ролями и пермишенами
+    const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
+    
+    if (!userWithPermissions) {
+      throw new Error('User not found');
+    }
+
+    const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+    
     return {
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        displayName: user.displayName,
-        avatar: user.avatar,
+        id: formattedResponse.id,
+        email: formattedResponse.email,
+        firstName: formattedResponse.firstName,
+        lastName: formattedResponse.lastName,
+        displayName: formattedResponse.displayName,
+        avatar: formattedResponse.avatar,
         authProvider: user.authProvider,
         isActive: user.isActive,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        roleId: formattedResponse.roleId,
+        role: formattedResponse.role,
+        permissions: formattedResponse.permissions
       },
       token,
     };

@@ -39,12 +39,21 @@ export class RoleService {
     let userRole = await this.findByName('Пользователь');
     
     if (!userRole) {
-      // Если роль не найдена, создаем её
+      // Если роль не найдена, создаем её с базовыми пермишенами
+      const basicPermissions = await this.permissionRepository.find({
+        where: [
+          { code: 'users.view' }, // Просмотр пользователей
+          { code: 'files.view' }, // Просмотр файлов
+          { code: 'files.upload' }, // Загрузка файлов
+          { code: 'files.download' } // Скачивание файлов
+        ]
+      });
+      
       userRole = await this.create({
         name: 'Пользователь',
         description: 'Базовые права пользователя',
         isActive: true
-      });
+      }, basicPermissions.map(p => p.id));
     }
     
     return userRole;
@@ -135,12 +144,38 @@ export class RoleService {
 
     const userRole = await this.findByName('Пользователь');
     if (!userRole) {
-      // Создаем роль пользователя без особых пермишенов
+      // Создаем роль пользователя с базовыми пермишенами
+      const basicPermissions = await this.permissionRepository.find({
+        where: [
+          { code: 'users.view' }, // Просмотр пользователей
+          { code: 'files.view' }, // Просмотр файлов
+          { code: 'files.upload' }, // Загрузка файлов
+          { code: 'files.download' } // Скачивание файлов
+        ]
+      });
+      
       await this.create({
         name: 'Пользователь',
         description: 'Базовые права пользователя',
         isActive: true
+      }, basicPermissions.map(p => p.id));
+    } else {
+      // Обновляем существующую роль пользователя, добавляя базовые пермишены если их нет
+      const basicPermissions = await this.permissionRepository.find({
+        where: [
+          { code: 'users.view' },
+          { code: 'files.view' },
+          { code: 'files.upload' },
+          { code: 'files.download' }
+        ]
       });
+      
+      const currentPermissionIds = userRole.permissions.map(p => p.id);
+      const newPermissionIds = basicPermissions.filter(p => !currentPermissionIds.includes(p.id)).map(p => p.id);
+      
+      if (newPermissionIds.length > 0) {
+        await this.update(userRole.id, {}, [...currentPermissionIds, ...newPermissionIds]);
+      }
     }
   }
 }

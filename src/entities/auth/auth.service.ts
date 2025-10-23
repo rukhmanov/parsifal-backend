@@ -401,4 +401,35 @@ export class AuthService {
 
     return { message: 'Пароль успешно изменен' };
   }
+
+  // Метод для получения пользователя с ролями и пермишенами
+  async getUserWithPermissions(userId: string): Promise<User | null> {
+    return await this.userService.findById(userId);
+  }
+
+  // Метод для формирования ответа с пермишенами для всех типов авторизации
+  formatUserResponseWithPermissions(user: User): any {
+    const permissions = user.role?.permissions?.map(permission => ({
+      id: permission.id,
+      name: permission.name,
+      code: permission.code,
+      description: permission.description
+    })) || [];
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      displayName: user.displayName,
+      avatar: user.avatar,
+      roleId: user.roleId,
+      role: user.role ? { 
+        id: user.role.id, 
+        name: user.role.name,
+        description: user.role.description
+      } : null,
+      permissions: permissions
+    };
+  }
 }
