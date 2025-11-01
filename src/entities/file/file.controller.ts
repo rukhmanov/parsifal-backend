@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { S3Service } from '../../common/services/s3.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UserService } from '../user/user.service';
@@ -22,6 +23,7 @@ interface AuthenticatedRequest extends Request {
   user: JwtPayload;
 }
 
+@ApiTags('files')
 @Controller('files')
 @UseGuards(JwtAuthGuard)
 export class FileController {
@@ -33,6 +35,11 @@ export class FileController {
 
 
   @Post('upload')
+  @ApiOperation({ summary: 'Загрузить файл' })
+  @ApiResponse({ status: 201, description: 'Файл успешно загружен' })
+  @ApiResponse({ status: 400, description: 'Ошибка загрузки файла' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,

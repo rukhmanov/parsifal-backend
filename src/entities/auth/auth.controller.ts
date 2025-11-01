@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Query, Req, Res, UseGuards, Body, ValidationPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -17,6 +18,7 @@ export interface GoogleCallbackRequest extends Request {
   user: any;
 }
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -453,6 +455,10 @@ export class AuthController {
 
   // Эндпоинты для локальной аутентификации
   @Post('register')
+  @ApiOperation({ summary: 'Регистрация нового пользователя' })
+  @ApiResponse({ status: 201, description: 'Пользователь успешно зарегистрирован' })
+  @ApiResponse({ status: 400, description: 'Ошибка валидации данных' })
+  @ApiBody({ type: RegisterDto })
   async register(@Body(ValidationPipe) registerDto: RegisterDto): Promise<{ user: any; token: string }> {
     const user = await this.authService.register(registerDto);
     const token = await this.authService.generateJwtToken(user);
@@ -487,6 +493,19 @@ export class AuthController {
   }
 
   @Post('login')
+  @ApiOperation({ summary: 'Авторизация пользователя' })
+  @ApiResponse({ status: 200, description: 'Успешная авторизация' })
+  @ApiResponse({ status: 401, description: 'Неверные учетные данные' })
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', example: 'user@example.com' },
+        password: { type: 'string', example: 'password123' }
+      },
+      required: ['email', 'password']
+    }
+  })
   @UseGuards(AuthGuard('local'))
   async login(@Req() req: Request): Promise<{ user: any; token: string }> {
     const user = req.user as any;
@@ -523,12 +542,20 @@ export class AuthController {
 
   // Эндпоинт для восстановления пароля
   @Post('forgot-password')
+  @ApiOperation({ summary: 'Запрос восстановления пароля' })
+  @ApiResponse({ status: 200, description: 'Письмо с инструкциями отправлено' })
+  @ApiResponse({ status: 404, description: 'Пользователь не найден' })
+  @ApiBody({ type: ForgotPasswordDto })
   async forgotPassword(@Body(ValidationPipe) forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
     return await this.authService.forgotPassword(forgotPasswordDto.email);
   }
 
   // Эндпоинт для сброса пароля по токену
   @Post('reset-password')
+  @ApiOperation({ summary: 'Сброс пароля по токену' })
+  @ApiResponse({ status: 200, description: 'Пароль успешно изменен' })
+  @ApiResponse({ status: 400, description: 'Неверный или истекший токен' })
+  @ApiBody({ type: ResetPasswordDto })
   async resetPassword(@Body(ValidationPipe) resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
     return await this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
   }

@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RoleService } from './role.service';
 import { Role } from './role.entity';
 
@@ -14,11 +15,15 @@ export interface UpdateRoleDto {
   permissionIds?: string[];
 }
 
+@ApiTags('roles')
 @Controller('roles')
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Получить список всех ролей' })
+  @ApiResponse({ status: 200, description: 'Список ролей получен успешно' })
+  @ApiBearerAuth('JWT-auth')
   async findAll(): Promise<Role[]> {
     return this.roleService.findAll();
   }

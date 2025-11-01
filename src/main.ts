@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, RequestMethod } from '@nestjs/common';
 import helmet from 'helmet';
 import * as cors from 'cors';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
@@ -47,14 +48,54 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // Устанавливаем глобальный префикс для API, исключая корневой эндпоинт
+  // Swagger configuration (BEFORE global prefix)
+  const config = new DocumentBuilder()
+    .setTitle('Parsifal API')
+    .setDescription('API для системы управления пользователями Parsifal')
+    .setVersion('1.0')
+    .addServer('/api', 'API с префиксом /api')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Введите JWT токен',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
+    .addTag('auth', 'Авторизация и аутентификация')
+    .addTag('users', 'Управление пользователями')
+    .addTag('roles', 'Управление ролями')
+    .addTag('permissions', 'Управление разрешениями')
+    .addTag('files', 'Управление файлами')
+    .addTag('statistics', 'Статистика')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  
+  // Setup Swagger on root path /docs (not /api/docs)
+  SwaggerModule.setup('docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
+
+  // Устанавливаем глобальный префикс для API, исключая корневой эндпоинт и docs
   app.setGlobalPrefix('api', {
-    exclude: [{ path: '', method: RequestMethod.GET }],
+    exclude: [
+      { path: '', method: RequestMethod.GET },
+      { path: 'docs', method: RequestMethod.ALL },
+      { path: 'docs/(.*)', method: RequestMethod.ALL },
+    ],
   });
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
   
+  console.log(`🚀 Приложение запущено на порту ${port}`);
+  console.log(`📚 Swagger документация доступна по адресу: http://localhost:${port}/docs`);
 }
 
 bootstrap().catch(() => {

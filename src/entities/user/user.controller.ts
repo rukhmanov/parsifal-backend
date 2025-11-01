@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus, UseInterceptors, UploadedFile, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { User } from './user.entity';
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
@@ -29,6 +30,7 @@ export interface UpdateUserDto {
   isActive?: boolean;
 }
 
+@ApiTags('users')
 @Controller('users')
 export class UserController {
   constructor(
@@ -37,6 +39,9 @@ export class UserController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Получить список всех пользователей' })
+  @ApiResponse({ status: 200, description: 'Список пользователей получен успешно' })
+  @ApiBearerAuth('JWT-auth')
   // @UseGuards(JwtAuthGuard, PermissionsGuard)
   // @RequirePermissions(['users.view'])
   async findAll(): Promise<User[]> {
@@ -51,6 +56,27 @@ export class UserController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Создать нового пользователя' })
+  @ApiResponse({ status: 201, description: 'Пользователь создан успешно' })
+  @ApiResponse({ status: 400, description: 'Ошибка валидации данных' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', example: 'user@example.com' },
+        firstName: { type: 'string', example: 'Иван' },
+        lastName: { type: 'string', example: 'Иванов' },
+        displayName: { type: 'string', example: 'Иван Иванов' },
+        avatar: { type: 'string', example: 'https://example.com/avatar.jpg' },
+        authProvider: { type: 'string', enum: ['google', 'yandex', 'local'] },
+        providerId: { type: 'string', example: 'google_123456' },
+        roleId: { type: 'string', example: 'role-uuid' },
+        isActive: { type: 'boolean', example: true }
+      },
+      required: ['email', 'firstName', 'lastName', 'authProvider', 'providerId']
+    }
+  })
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(['users.create'])
   async create(@Body() userData: CreateUserDto): Promise<User> {

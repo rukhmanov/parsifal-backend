@@ -1,12 +1,17 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { PermissionService } from './permission.service';
 import { Permission } from './permission.entity';
 
+@ApiTags('permissions')
 @Controller('permissions')
 export class PermissionController {
   constructor(private readonly permissionService: PermissionService) {}
 
   @Get()
+  @ApiOperation({ summary: 'Получить список всех разрешений' })
+  @ApiResponse({ status: 200, description: 'Список разрешений получен успешно' })
+  @ApiBearerAuth('JWT-auth')
   async findAll(): Promise<Permission[]> {
     return this.permissionService.findAll();
   }
