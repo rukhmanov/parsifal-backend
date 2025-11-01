@@ -226,6 +226,7 @@ export class AuthController {
           verified_email: true,
           locale: 'ru',
           roleId: formattedResponse.roleId,
+          isActive: formattedResponse.isActive,
           role: formattedResponse.role,
           permissions: formattedResponse.permissions
         };
@@ -255,6 +256,7 @@ export class AuthController {
           verified_email: true,
           locale: 'ru',
           roleId: formattedResponse.roleId,
+          isActive: formattedResponse.isActive,
           role: formattedResponse.role,
           permissions: formattedResponse.permissions,
           jwtToken // Возвращаем JWT токен для клиента
@@ -348,6 +350,7 @@ export class AuthController {
           real_name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
           login: formattedResponse.email.split('@')[0],
           roleId: formattedResponse.roleId,
+          isActive: formattedResponse.isActive,
           role: formattedResponse.role,
           permissions: formattedResponse.permissions
         };
@@ -383,6 +386,7 @@ export class AuthController {
           real_name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
           login: formattedResponse.email.split('@')[0],
           roleId: formattedResponse.roleId,
+          isActive: formattedResponse.isActive,
           role: formattedResponse.role,
           permissions: formattedResponse.permissions,
           jwtToken // Возвращаем JWT токен для клиента
@@ -444,6 +448,7 @@ export class AuthController {
         displayName: formattedResponse.displayName,
         avatar: formattedResponse.avatar,
         roleId: formattedResponse.roleId,
+        isActive: formattedResponse.isActive,
         role: formattedResponse.role,
         permissions: formattedResponse.permissions,
         jwtToken

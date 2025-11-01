@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus, UseInterceptors, UploadedFile, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, UseInterceptors, UploadedFile, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { UserService } from './user.service';
@@ -83,18 +83,28 @@ export class UserController {
     return this.userService.create(userData as Partial<User>);
   }
 
-  @Put(':id')
-  @ApiOperation({ summary: 'Обновить пользователя' })
+  // PATCH эндпоинт для обновления полей пользователя (без фото)
+  @Patch(':id')
+  @ApiOperation({ summary: 'Частично обновить данные пользователя' })
   @ApiResponse({ status: 200, description: 'Пользователь успешно обновлен' })
   @ApiResponse({ status: 403, description: 'Недостаточно прав для обновления' })
   @ApiBearerAuth('JWT-auth')
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('photo'))
+  @ApiBody({ 
+    schema: {
+      type: 'object',
+      properties: {
+        firstName: { type: 'string', example: 'Иван' },
+        lastName: { type: 'string', example: 'Иванов' },
+        email: { type: 'string', example: 'user@example.com' },
+        roleId: { type: 'string', example: 'role-uuid' },
+        isActive: { type: 'boolean', example: true }
+      }
+    }
+  })
   @UseGuards(JwtAuthGuard)
-  async update(
+  async patchUser(
     @Param('id') id: string,
     @Body() userData: UpdateUserDto,
-    @UploadedFile() photo?: Express.Multer.File,
     @Request() req?: any
   ): Promise<User | null> {
     const user = req.user;
@@ -108,11 +118,18 @@ export class UserController {
     );
 
     // Удаляем displayName из данных, так как он будет автоматически сформирован
+    // Разрешаем avatar только для удаления (если это пустая строка)
     const { displayName, ...dataWithoutDisplayName } = userData;
+    const shouldDeleteAvatar = userData.avatar === '' || userData.avatar === null;
 
     // Если есть права на редактирование - разрешаем обновление любых полей
     if (hasEditPermission) {
       let updateData: Partial<UpdateUserDto> = { ...dataWithoutDisplayName };
+      
+      // Если нужно удалить фото, устанавливаем avatar в null
+      if (shouldDeleteAvatar) {
+        (updateData as any).avatar = null;
+      }
       
       // Автоматически формируем displayName из firstName и lastName
       if (updateData.firstName || updateData.lastName) {
@@ -131,13 +148,6 @@ export class UserController {
         updateData.isActive = updateData.isActive === 'true';
       }
       
-      // Если загружено фото, обрабатываем его
-      if (photo) {
-        const fileKey = `users/${id}/profile-photo.${photo.originalname.split('.').pop()}`;
-        const fileUrl = await this.s3Service.uploadFile(photo, fileKey);
-        updateData.avatar = fileUrl;
-      }
-      
       return this.userService.update(id, updateData);
     }
 
@@ -146,13 +156,13 @@ export class UserController {
       throw new ForbiddenException('Недостаточно прав для обновления этого пользователя');
     }
 
-    // Это самообновление - проверяем разрешенные поля (только имя, фамилия, фото)
+    // Это самообновление - проверяем разрешенные поля (только имя, фамилия)
     const currentUser = await this.userService.findById(id);
     if (!currentUser) {
       throw new ForbiddenException('Пользователь не найден');
     }
 
-    const allowedFields = ['firstName', 'lastName', 'avatar'];
+    const allowedFields = ['firstName', 'lastName'];
     const restrictedFields = ['email', 'roleId', 'isActive', 'authProvider', 'providerId'];
 
     // Проверяем, что не изменяются запрещенные поля
@@ -186,7 +196,7 @@ export class UserController {
       }
     }
 
-    if (changedFields.length === 0 && !photo) {
+    if (changedFields.length === 0) {
       throw new ForbiddenException('Необходимо указать хотя бы одно разрешенное поле для обновления');
     }
 
@@ -205,18 +215,52 @@ export class UserController {
       const firstName = updateData.firstName ?? currentUser.firstName;
       const lastName = updateData.lastName ?? currentUser.lastName;
       if (firstName && lastName) {
-        updateData.displayName = `${firstName} ${lastName}`;
+        (updateData as any).displayName = `${firstName} ${lastName}`;
       }
     }
     
-    // Если загружено фото, обрабатываем его
-    if (photo) {
-      const fileKey = `users/${id}/profile-photo.${photo.originalname.split('.').pop()}`;
-      const fileUrl = await this.s3Service.uploadFile(photo, fileKey);
-      updateData.avatar = fileUrl;
-    }
-    
     return this.userService.update(id, updateData);
+  }
+
+  // POST эндпоинт для обновления только фото
+  @Post(':id/photo')
+  @ApiOperation({ summary: 'Обновить фото профиля пользователя' })
+  @ApiResponse({ status: 200, description: 'Фото успешно обновлено' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав для обновления' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('photo'))
+  @UseGuards(JwtAuthGuard)
+  async updatePhoto(
+    @Param('id') id: string,
+    @UploadedFile() photo: Express.Multer.File,
+    @Request() req?: any
+  ): Promise<User | null> {
+    const user = req.user;
+    if (!user) {
+      throw new ForbiddenException('Пользователь не авторизован');
+    }
+
+    if (!photo) {
+      throw new ForbiddenException('Фото не предоставлено');
+    }
+
+    // Проверяем, есть ли у пользователя права на редактирование пользователей
+    const hasEditPermission = user.role?.permissions?.some(
+      (permission: { code: string }) => permission.code === 'users.edit'
+    );
+
+    // Если прав нет - проверяем, что это самообновление
+    if (!hasEditPermission && user.id !== id) {
+      throw new ForbiddenException('Недостаточно прав для обновления фото этого пользователя');
+    }
+
+    // Загружаем фото
+    const fileKey = `users/${id}/profile-photo.${photo.originalname.split('.').pop()}`;
+    const fileUrl = await this.s3Service.uploadFile(photo, fileKey);
+
+    // Обновляем только avatar
+    return this.userService.update(id, { avatar: fileUrl });
   }
 
   @Delete(':id')

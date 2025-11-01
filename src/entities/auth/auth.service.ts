@@ -424,6 +424,7 @@ export class AuthService {
       displayName: user.displayName,
       avatar: user.avatar,
       roleId: user.roleId,
+      isActive: user.isActive,
       role: user.role ? { 
         id: user.role.id, 
         name: user.role.name,
