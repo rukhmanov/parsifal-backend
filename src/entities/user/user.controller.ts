@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus, UseInterceptors, UploadedFile, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { User } from './user.entity';
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
@@ -50,7 +50,7 @@ export class UserController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions(['users.view'])
+  // @RequirePermissions(['users.view'])
   async findById(@Param('id') id: string): Promise<User | null> {
     return this.userService.findById(id);
   }
@@ -84,6 +84,11 @@ export class UserController {
   }
 
   @Put(':id')
+  @ApiOperation({ summary: 'Обновить пользователя' })
+  @ApiResponse({ status: 200, description: 'Пользователь успешно обновлен' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав для обновления' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('photo'))
   @UseGuards(JwtAuthGuard)
   async update(
@@ -92,99 +97,116 @@ export class UserController {
     @UploadedFile() photo?: Express.Multer.File,
     @Request() req?: any
   ): Promise<User | null> {
-    // Отладочная информация
-    console.log('=== UserController Update Debug ===');
-    console.log('User ID:', id);
-    console.log('User data received:', JSON.stringify(userData, null, 2));
-    console.log('Photo file:', photo ? photo.originalname : 'No photo');
-    
-    // Проверяем самообновление после обработки FileInterceptor
     const user = req.user;
-    if (user && user.id === id) {
-      console.log('=== Self-update detected ===');
-      
-      // Это самообновление - проверяем разрешенные поля
-      const currentUser = await this.userService.findById(id);
-      if (!currentUser) {
-        throw new ForbiddenException('Пользователь не найден');
-      }
-
-      const allowedFields = ['firstName', 'lastName', 'displayName', 'avatar'];
-      const restrictedFields = ['email', 'roleId', 'isActive', 'authProvider', 'providerId'];
-
-      console.log('Current user data:', {
-        firstName: currentUser.firstName,
-        lastName: currentUser.lastName,
-        displayName: currentUser.displayName,
-        roleId: currentUser.roleId,
-        isActive: currentUser.isActive
-      });
-
-      // Проверяем, что не изменяются запрещенные поля (только если они действительно изменились)
-      for (const field of restrictedFields) {
-        if (field in userData) {
-          const currentValue = currentUser[field as keyof User];
-          let newValue = userData[field as keyof UpdateUserDto];
-          
-          // Преобразуем строковые значения для корректного сравнения
-          if (field === 'isActive' && typeof newValue === 'string') {
-            newValue = newValue === 'true' as any;
-          }
-          
-          console.log(`Checking restricted field ${field}:`, {
-            current: currentValue,
-            new: newValue,
-            changed: currentValue !== newValue
-          });
-          
-          // Проверяем только если значение действительно изменилось
-          if (currentValue !== newValue) {
-            throw new ForbiddenException(`Нельзя изменять поле: ${field}`);
-          }
-        }
-      }
-
-      // Проверяем, что изменяется хотя бы одно разрешенное поле
-      const changedFields: string[] = [];
-      for (const field of allowedFields) {
-        if (field in userData) {
-          const currentValue = currentUser[field as keyof User];
-          let newValue = userData[field as keyof UpdateUserDto];
-          
-          // Преобразуем строковые значения для корректного сравнения
-          if (field === 'isActive' && typeof newValue === 'string') {
-            newValue = newValue === 'true' as any;
-          }
-          
-          console.log(`Checking allowed field ${field}:`, {
-            current: currentValue,
-            new: newValue,
-            changed: currentValue !== newValue
-          });
-          
-          if (currentValue !== newValue) {
-            changedFields.push(field);
-          }
-        }
-      }
-
-      console.log('Changed fields:', changedFields);
-      console.log('Photo uploaded:', !!photo);
-
-      if (changedFields.length === 0 && !photo) {
-        throw new ForbiddenException('Необходимо указать хотя бы одно разрешенное поле для обновления');
-      }
-
-      console.log('Self-update validation passed');
-      // Устанавливаем флаг, что самообновление разрешено
-      req.selfUpdateAllowed = true;
+    if (!user) {
+      throw new ForbiddenException('Пользователь не авторизован');
     }
 
-    let updateData = { ...userData };
+    // Проверяем, есть ли у пользователя права на редактирование пользователей
+    const hasEditPermission = user.role?.permissions?.some(
+      (permission: { code: string }) => permission.code === 'users.edit'
+    );
+
+    // Удаляем displayName из данных, так как он будет автоматически сформирован
+    const { displayName, ...dataWithoutDisplayName } = userData;
+
+    // Если есть права на редактирование - разрешаем обновление любых полей
+    if (hasEditPermission) {
+      let updateData: Partial<UpdateUserDto> = { ...dataWithoutDisplayName };
+      
+      // Автоматически формируем displayName из firstName и lastName
+      if (updateData.firstName || updateData.lastName) {
+        const currentUser = await this.userService.findById(id);
+        if (currentUser) {
+          const firstName = updateData.firstName ?? currentUser.firstName;
+          const lastName = updateData.lastName ?? currentUser.lastName;
+          if (firstName && lastName) {
+            (updateData as any).displayName = `${firstName} ${lastName}`;
+          }
+        }
+      }
+      
+      // Преобразуем строковые значения в правильные типы
+      if (typeof updateData.isActive === 'string') {
+        updateData.isActive = updateData.isActive === 'true';
+      }
+      
+      // Если загружено фото, обрабатываем его
+      if (photo) {
+        const fileKey = `users/${id}/profile-photo.${photo.originalname.split('.').pop()}`;
+        const fileUrl = await this.s3Service.uploadFile(photo, fileKey);
+        updateData.avatar = fileUrl;
+      }
+      
+      return this.userService.update(id, updateData);
+    }
+
+    // Если прав нет - проверяем, что это самообновление
+    if (user.id !== id) {
+      throw new ForbiddenException('Недостаточно прав для обновления этого пользователя');
+    }
+
+    // Это самообновление - проверяем разрешенные поля (только имя, фамилия, фото)
+    const currentUser = await this.userService.findById(id);
+    if (!currentUser) {
+      throw new ForbiddenException('Пользователь не найден');
+    }
+
+    const allowedFields = ['firstName', 'lastName', 'avatar'];
+    const restrictedFields = ['email', 'roleId', 'isActive', 'authProvider', 'providerId'];
+
+    // Проверяем, что не изменяются запрещенные поля
+    for (const field of restrictedFields) {
+      if (field in dataWithoutDisplayName) {
+        const currentValue = currentUser[field as keyof User];
+        let newValue = (dataWithoutDisplayName as any)[field];
+        
+        // Преобразуем строковые значения для корректного сравнения
+        if (field === 'isActive' && typeof newValue === 'string') {
+          newValue = newValue === 'true' as any;
+        }
+        
+        // Проверяем только если значение действительно изменилось
+        if (currentValue !== newValue) {
+          throw new ForbiddenException(`Нельзя изменять поле: ${field}`);
+        }
+      }
+    }
+
+    // Проверяем, что изменяется хотя бы одно разрешенное поле
+    const changedFields: string[] = [];
+    for (const field of allowedFields) {
+      if (field in dataWithoutDisplayName) {
+        const currentValue = currentUser[field as keyof User];
+        const newValue = (dataWithoutDisplayName as any)[field];
+        
+        if (currentValue !== newValue) {
+          changedFields.push(field);
+        }
+      }
+    }
+
+    if (changedFields.length === 0 && !photo) {
+      throw new ForbiddenException('Необходимо указать хотя бы одно разрешенное поле для обновления');
+    }
+
+    // Формируем данные для обновления (только разрешенные поля)
+    let updateData: Partial<UpdateUserDto> = {};
     
-    // Преобразуем строковые значения в правильные типы
-    if (typeof updateData.isActive === 'string') {
-      updateData.isActive = updateData.isActive === 'true';
+    if ('firstName' in dataWithoutDisplayName) {
+      updateData.firstName = dataWithoutDisplayName.firstName;
+    }
+    if ('lastName' in dataWithoutDisplayName) {
+      updateData.lastName = dataWithoutDisplayName.lastName;
+    }
+    
+    // Автоматически формируем displayName из firstName и lastName
+    if (updateData.firstName || updateData.lastName) {
+      const firstName = updateData.firstName ?? currentUser.firstName;
+      const lastName = updateData.lastName ?? currentUser.lastName;
+      if (firstName && lastName) {
+        updateData.displayName = `${firstName} ${lastName}`;
+      }
     }
     
     // Если загружено фото, обрабатываем его
