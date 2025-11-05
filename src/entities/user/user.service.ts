@@ -113,23 +113,6 @@ export class UserService {
     });
   }
 
-  // Реактивация пользователя
-  async reactivateUser(id: string): Promise<User | null> {
-    const user = await this.findById(id);
-    if (!user) {
-      return null;
-    }
-
-    await this.userRepository.update(id, { isActive: true });
-    
-    // Возвращаем обновленного пользователя с связями
-    return await this.userRepository.findOne({ 
-      where: { id },
-      relations: ['role', 'role.permissions'],
-      cache: false
-    });
-  }
-
   // Получение всех пользователей (для админ панели)
   async findAll(): Promise<User[]> {
     return await this.userRepository.find({

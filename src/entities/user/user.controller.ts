@@ -278,12 +278,4 @@ export class UserController {
     return this.userService.findAllWithFilters(request);
   }
 
-  @Post(':id/reactivate')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions(['users.reactivate'])
-  @HttpCode(HttpStatus.OK)
-  async reactivateUser(@Param('id') id: string): Promise<User | null> {
-    return this.userService.reactivateUser(id);
-  }
-
 }
