@@ -52,7 +52,8 @@ export class UserController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   // @RequirePermissions(['users.view'])
   async findById(@Param('id') id: string): Promise<User | null> {
-    return this.userService.findById(id);
+    const normalizedId = this.normalizeUserId(id);
+    return this.userService.findById(normalizedId);
   }
 
   @Post()
@@ -113,6 +114,10 @@ export class UserController {
       throw new ForbiddenException('Пользователь не авторизован');
     }
 
+    // Нормализуем ID (удаляем префикс local_ если есть)
+    const normalizedId = this.normalizeUserId(id);
+    const normalizedCurrentUserId = this.normalizeUserId(String(user.id));
+
     // Проверяем, есть ли у пользователя права на редактирование пользователей
     const hasEditPermission = user.role?.permissions?.some(
       (permission: { code: string }) => permission.code === 'users.edit'
@@ -134,7 +139,7 @@ export class UserController {
       
       // Автоматически формируем displayName из firstName и lastName
       if (updateData.firstName || updateData.lastName) {
-        const currentUser = await this.userService.findById(id);
+        const currentUser = await this.userService.findById(normalizedId);
         if (currentUser) {
           const firstName = updateData.firstName ?? currentUser.firstName;
           const lastName = updateData.lastName ?? currentUser.lastName;
@@ -149,16 +154,16 @@ export class UserController {
         updateData.isActive = updateData.isActive === 'true';
       }
       
-      return this.userService.update(id, updateData);
+      return this.userService.update(normalizedId, updateData);
     }
 
     // Если прав нет - проверяем, что это самообновление
-    if (user.id !== id) {
+    if (normalizedCurrentUserId !== normalizedId) {
       throw new ForbiddenException('Недостаточно прав для обновления этого пользователя');
     }
 
     // Это самообновление - проверяем разрешенные поля (только имя, фамилия)
-    const currentUser = await this.userService.findById(id);
+    const currentUser = await this.userService.findById(normalizedId);
     if (!currentUser) {
       throw new ForbiddenException('Пользователь не найден');
     }
@@ -220,7 +225,7 @@ export class UserController {
       }
     }
     
-    return this.userService.update(id, updateData);
+    return this.userService.update(normalizedId, updateData);
   }
 
   // POST эндпоинт для обновления только фото
@@ -246,30 +251,80 @@ export class UserController {
       throw new ForbiddenException('Фото не предоставлено');
     }
 
+    // Нормализуем ID (удаляем префикс local_ если есть)
+    const normalizedId = this.normalizeUserId(id);
+    const normalizedCurrentUserId = this.normalizeUserId(String(user.id));
+
     // Проверяем, есть ли у пользователя права на редактирование пользователей
     const hasEditPermission = user.role?.permissions?.some(
       (permission: { code: string }) => permission.code === 'users.edit'
     );
 
     // Если прав нет - проверяем, что это самообновление
-    if (!hasEditPermission && user.id !== id) {
+    if (!hasEditPermission && normalizedCurrentUserId !== normalizedId) {
       throw new ForbiddenException('Недостаточно прав для обновления фото этого пользователя');
     }
 
     // Загружаем фото
-    const fileKey = `users/${id}/profile-photo.${photo.originalname.split('.').pop()}`;
+    const fileKey = `users/${normalizedId}/profile-photo.${photo.originalname.split('.').pop()}`;
     const fileUrl = await this.s3Service.uploadFile(photo, fileKey);
 
     // Обновляем только avatar
-    return this.userService.update(id, { avatar: fileUrl });
+    return this.userService.update(normalizedId, { avatar: fileUrl });
+  }
+
+  // Вспомогательная функция для нормализации ID (удаление префикса local_)
+  private normalizeUserId(id: string): string {
+    if (id.startsWith('local_')) {
+      return id.replace(/^local_/, '');
+    }
+    return id;
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions(['users.delete'])
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('id') id: string): Promise<void> {
-    return this.userService.delete(id);
+  async delete(
+    @Param('id') id: string,
+    @Request() req?: any
+  ): Promise<void> {
+    const user = req.user;
+    if (!user) {
+      throw new ForbiddenException('Пользователь не авторизован');
+    }
+
+    // Нормализуем ID (удаляем префикс local_ если есть)
+    const normalizedId = this.normalizeUserId(id);
+    const normalizedCurrentUserId = this.normalizeUserId(String(user.id));
+
+    // Проверяем, что пользователь существует
+    const userToDelete = await this.userService.findById(normalizedId);
+    if (!userToDelete) {
+      throw new ForbiddenException('Пользователь не найден');
+    }
+
+    // Проверяем, является ли это самоудалением
+    const isSelfDeletion = normalizedCurrentUserId === normalizedId;
+
+    // Если это не самоудаление, проверяем права
+    if (!isSelfDeletion) {
+      // Загружаем пользователя с ролью и пермишенами для проверки прав
+      const userWithPermissions = await this.userService.findById(normalizedCurrentUserId);
+      if (!userWithPermissions) {
+        throw new ForbiddenException('Пользователь не найден');
+      }
+
+      // Проверяем, есть ли у пользователя права на удаление пользователей
+      const hasDeletePermission = userWithPermissions.role?.permissions?.some(
+        (permission: { code: string }) => permission.code === 'users.delete'
+      );
+
+      if (!hasDeletePermission) {
+        throw new ForbiddenException('Недостаточно прав для удаления этого пользователя');
+      }
+    }
+
+    return this.userService.delete(normalizedId);
   }
 
   @Post('filter')
