@@ -71,7 +71,6 @@ export class UserController {
         avatar: { type: 'string', example: 'https://example.com/avatar.jpg' },
         authProvider: { type: 'string', enum: ['google', 'yandex', 'local'] },
         providerId: { type: 'string', example: 'google_123456' },
-        roleId: { type: 'string', example: 'role-uuid' },
         isActive: { type: 'boolean', example: true }
       },
       required: ['email', 'firstName', 'lastName', 'authProvider', 'providerId']
@@ -80,7 +79,9 @@ export class UserController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(['users.create'])
   async create(@Body() userData: CreateUserDto): Promise<User> {
-    return this.userService.create(userData as Partial<User>);
+    // Удаляем roleId из данных, чтобы при создании пользователя роль всегда была null
+    const { roleId, ...dataWithoutRoleId } = userData;
+    return this.userService.create({ ...dataWithoutRoleId, roleId: undefined } as Partial<User>);
   }
 
   // PATCH эндпоинт для обновления полей пользователя (без фото)

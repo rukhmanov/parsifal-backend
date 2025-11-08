@@ -5,7 +5,6 @@ import { User } from './user.entity';
 import { UserService } from './user.service';
 import { UserController } from './user.controller';
 import { CommonModule } from '../../common/common.module';
-import { RoleModule } from '../role/role.module';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { SelfUpdateGuard } from '../../common/guards/self-update.guard';
@@ -14,7 +13,6 @@ import { SelfUpdateGuard } from '../../common/guards/self-update.guard';
   imports: [
     TypeOrmModule.forFeature([User]), 
     CommonModule, 
-    RoleModule,
     PassportModule
   ],
   controllers: [UserController],

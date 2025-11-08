@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { FilterService } from '../../common/services/filter.service';
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
-import { RoleService } from '../role/role.service';
 
 @Injectable()
 export class UserService {
@@ -12,7 +11,6 @@ export class UserService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly filterService: FilterService,
-    private readonly roleService: RoleService,
   ) {}
 
   // Конфигурация полей для фильтрации пользователей
@@ -40,11 +38,8 @@ export class UserService {
   }
 
   async create(userData: Partial<User>): Promise<User> {
-    // Если роль не указана, автоматически назначаем роль "Пользователь"
-    if (!userData.roleId) {
-      const defaultRole = await this.roleService.getDefaultUserRole();
-      userData.roleId = defaultRole.id;
-    }
+    // Принудительно устанавливаем roleId в undefined при создании пользователя
+    userData.roleId = undefined;
     
     const user = this.userRepository.create(userData);
     return await this.userRepository.save(user);
