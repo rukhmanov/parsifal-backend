@@ -121,8 +121,7 @@ export class RoleService {
       const allPermissions = await this.permissionRepository.find();
       await this.create({
         name: 'Администратор',
-        description: 'Полный доступ ко всем функциям системы',
-        isActive: true
+        description: 'Полный доступ ко всем функциям системы'
       }, allPermissions.map(p => p.id));
     } else {
       // Обновляем существующую роль администратора, добавляя новые пермишены

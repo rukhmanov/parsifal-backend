@@ -13,9 +13,6 @@ export class Role {
   @Column()
   description!: string;
 
-  @Column({ default: true })
-  isActive!: boolean;
-
   @CreateDateColumn()
   createdAt!: Date;
 

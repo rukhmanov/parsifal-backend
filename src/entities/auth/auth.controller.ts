@@ -690,7 +690,6 @@ export class AuthController {
         id: user.role!.id,
         name: user.role!.name,
         description: user.role!.description || '',
-        isActive: user.role!.isActive,
         createdAt: user.role!.createdAt,
         updatedAt: user.role!.updatedAt
       }))
