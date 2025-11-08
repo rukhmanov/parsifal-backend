@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { S3Service } from '../../common/services/s3.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 import { UserService } from '../user/user.service';
 import { JwtPayload } from '../auth/auth.service';
 
@@ -107,6 +108,12 @@ export class FileController {
   }
 
   @Get('tree')
+  @ApiOperation({ summary: 'Получить дерево файлов' })
+  @ApiResponse({ status: 200, description: 'Дерево файлов получено успешно' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав для просмотра файловой системы' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['filesystem.view'])
   async getFileTree(@Param('path') path?: string) {
     const tree = await this.s3Service.getFileTree(path);
     return {
@@ -116,6 +123,12 @@ export class FileController {
   }
 
   @Get('list')
+  @ApiOperation({ summary: 'Получить список файлов' })
+  @ApiResponse({ status: 200, description: 'Список файлов получен успешно' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав для просмотра файловой системы' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['filesystem.view'])
   async listFiles(@Param('path') path?: string) {
     const files = await this.s3Service.listFiles(path);
     return {
@@ -125,6 +138,13 @@ export class FileController {
   }
 
   @Get('download/:key')
+  @ApiOperation({ summary: 'Скачать файл' })
+  @ApiResponse({ status: 200, description: 'Файл успешно скачан' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав для просмотра файловой системы' })
+  @ApiResponse({ status: 404, description: 'Файл не найден' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['filesystem.view'])
   async downloadFile(@Param('key') key: string, @Res() res: any) {
     try {
       // Получаем файл из S3
