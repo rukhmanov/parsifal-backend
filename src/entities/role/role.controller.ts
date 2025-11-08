@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RoleService } from './role.service';
 import { Role } from './role.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 
 export interface CreateRoleDto {
   name: string;
@@ -34,11 +36,23 @@ export class RoleController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Создать новую роль' })
+  @ApiResponse({ status: 201, description: 'Роль создана успешно' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав для создания ролей' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['roles.create'])
   async create(@Body() roleData: CreateRoleDto): Promise<Role> {
     return this.roleService.create(roleData, roleData.permissionIds);
   }
 
   @Put(':id')
+  @ApiOperation({ summary: 'Обновить роль' })
+  @ApiResponse({ status: 200, description: 'Роль обновлена успешно' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав для редактирования ролей' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['roles.edit'])
   async update(
     @Param('id') id: string,
     @Body() roleData: UpdateRoleDto
@@ -47,7 +61,13 @@ export class RoleController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Удалить роль' })
+  @ApiResponse({ status: 204, description: 'Роль удалена успешно' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав для удаления ролей' })
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['roles.delete'])
   async delete(@Param('id') id: string): Promise<void> {
     return this.roleService.delete(id);
   }
