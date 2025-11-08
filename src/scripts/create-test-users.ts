@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { UserService } from '../entities/user/user.service';
-import { RoleService } from '../entities/role/role.service';
 import * as bcrypt from 'bcrypt';
 
 interface TestUser {
@@ -57,19 +56,9 @@ async function createTestUsers() {
   const app = await NestFactory.createApplicationContext(AppModule);
   
   const userService = app.get(UserService);
-  const roleService = app.get(RoleService);
 
   try {
     console.log('Создание тестовых пользователей...');
-    
-    // Получаем роли
-    const roles = await roleService.findAll();
-    const userRole = roles.find(role => role.name === 'Пользователь');
-    
-    if (!userRole) {
-      console.error('Роль "Пользователь" не найдена. Сначала запустите скрипт инициализации ролей.');
-      return;
-    }
 
     let createdCount = 0;
     let skippedCount = 0;
@@ -84,7 +73,7 @@ async function createTestUsers() {
           continue;
         }
 
-        // Подготавливаем данные пользователя
+        // Подготавливаем данные пользователя (без роли)
         const userToCreate: any = {
           email: userData.email,
           firstName: userData.firstName,
@@ -93,7 +82,7 @@ async function createTestUsers() {
           authProvider: userData.authProvider,
           providerId: userData.providerId,
           isActive: true,
-          roleId: userRole.id
+          roleId: undefined // Пользователи создаются без роли
         };
 
         // Добавляем пароль для локальных пользователей

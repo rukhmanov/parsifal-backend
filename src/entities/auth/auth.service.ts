@@ -8,7 +8,6 @@ import { UserService } from '../user/user.service';
 import { User } from '../user/user.entity';
 import * as crypto from 'crypto';
 import { EmailNewService } from '../../common/email-new.service';
-import { RoleService } from '../role/role.service';
 
 // Единый интерфейс для данных от разных провайдеров
 export interface UnifiedUserData {
@@ -38,7 +37,6 @@ export class AuthService {
     private readonly yandexStrategy: YandexStrategy,
     private readonly userService: UserService,
     private readonly emailNewService: EmailNewService,
-    private readonly roleService: RoleService,
   ) {}
 
   // Нормализация данных от Google
@@ -130,10 +128,7 @@ export class AuthService {
         return user;
       }
     } else {
-      // Получаем роль пользователя по умолчанию
-      const defaultRole = await this.roleService.getDefaultUserRole();
-      
-      // Создаем нового пользователя
+      // Создаем нового пользователя без роли (roleId будет null)
       const newUser = await this.userService.create({
         email: userData.email,
         firstName: userData.firstName,
@@ -143,7 +138,7 @@ export class AuthService {
         authProvider: userData.authProvider,
         providerId: userData.providerId,
         isActive: true,
-        roleId: defaultRole.id, // Автоматически назначаем роль "Пользователь"
+        roleId: undefined, // Пользователь создается без роли
       });
       return newUser;
     }
@@ -268,10 +263,7 @@ export class AuthService {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Получаем роль пользователя по умолчанию
-    const defaultRole = await this.roleService.getDefaultUserRole();
-
-    // Создаем нового пользователя
+    // Создаем нового пользователя без роли (roleId будет null)
     const newUser = await this.userService.create({
       email,
       firstName,
@@ -281,7 +273,7 @@ export class AuthService {
       providerId: email,
       password: hashedPassword,
       isActive: true,
-      roleId: defaultRole.id, // Автоматически назначаем роль "Пользователь"
+      roleId: undefined, // Пользователь создается без роли
     });
 
     // Возвращаем пользователя без пароля

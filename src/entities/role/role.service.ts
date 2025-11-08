@@ -34,31 +34,6 @@ export class RoleService {
     });
   }
 
-  // Метод для получения роли пользователя по умолчанию
-  async getDefaultUserRole(): Promise<Role> {
-    let userRole = await this.findByName('Пользователь');
-    
-    if (!userRole) {
-      // Если роль не найдена, создаем её с базовыми пермишенами
-      const basicPermissions = await this.permissionRepository.find({
-        where: [
-          { code: 'users.view' }, // Просмотр пользователей
-          { code: 'files.view' }, // Просмотр файлов
-          { code: 'files.upload' }, // Загрузка файлов
-          { code: 'files.download' } // Скачивание файлов
-        ]
-      });
-      
-      userRole = await this.create({
-        name: 'Пользователь',
-        description: 'Базовые права пользователя',
-        isActive: true
-      }, basicPermissions.map(p => p.id));
-    }
-    
-    return userRole;
-  }
-
   async create(roleData: Partial<Role>, permissionIds?: string[]): Promise<Role> {
     const role = this.roleRepository.create(roleData);
     
@@ -89,6 +64,24 @@ export class RoleService {
   }
 
   async delete(id: string): Promise<void> {
+    // Проверяем, существует ли роль
+    const role = await this.findById(id);
+    if (!role) {
+      return;
+    }
+
+    // Явно удаляем все связи с правами из промежуточной таблицы role_permissions
+    // Это гарантирует, что роль можно удалить даже если у неё есть права
+    if (role.permissions && role.permissions.length > 0) {
+      await this.roleRepository
+        .createQueryBuilder()
+        .relation(Role, 'permissions')
+        .of(id)
+        .remove(role.permissions.map(p => p.id));
+    }
+
+    // Удаляем саму роль
+    // TypeORM автоматически удалит оставшиеся связи из промежуточной таблицы
     await this.roleRepository.delete(id);
   }
 
@@ -139,42 +132,6 @@ export class RoleService {
       
       if (newPermissionIds.length > 0) {
         await this.update(adminRole.id, {}, [...currentPermissionIds, ...newPermissionIds]);
-      }
-    }
-
-    const userRole = await this.findByName('Пользователь');
-    if (!userRole) {
-      // Создаем роль пользователя с базовыми пермишенами
-      const basicPermissions = await this.permissionRepository.find({
-        where: [
-          { code: 'users.view' }, // Просмотр пользователей
-          { code: 'files.view' }, // Просмотр файлов
-          { code: 'files.upload' }, // Загрузка файлов
-          { code: 'files.download' } // Скачивание файлов
-        ]
-      });
-      
-      await this.create({
-        name: 'Пользователь',
-        description: 'Базовые права пользователя',
-        isActive: true
-      }, basicPermissions.map(p => p.id));
-    } else {
-      // Обновляем существующую роль пользователя, добавляя базовые пермишены если их нет
-      const basicPermissions = await this.permissionRepository.find({
-        where: [
-          { code: 'users.view' },
-          { code: 'files.view' },
-          { code: 'files.upload' },
-          { code: 'files.download' }
-        ]
-      });
-      
-      const currentPermissionIds = userRole.permissions.map(p => p.id);
-      const newPermissionIds = basicPermissions.filter(p => !currentPermissionIds.includes(p.id)).map(p => p.id);
-      
-      if (newPermissionIds.length > 0) {
-        await this.update(userRole.id, {}, [...currentPermissionIds, ...newPermissionIds]);
       }
     }
   }
