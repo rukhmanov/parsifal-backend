@@ -11,6 +11,7 @@ import { PermissionModule } from './entities/permission/permission.module';
 import { RoleModule } from './entities/role/role.module';
 import { FileModule } from './entities/file/file.module';
 import { StatisticsModule } from './entities/statistics/statistics.module';
+import { EventModule } from './entities/event/event.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { StatisticsModule } from './entities/statistics/statistics.module';
     RoleModule,
     FileModule,
     StatisticsModule,
+    EventModule,
   ],
   controllers: [AppController],
   providers: [AppService],
