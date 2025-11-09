@@ -206,8 +206,20 @@ export class AuthService {
       }
       
       throw new Error('Unsupported provider');
-    } catch (error) {
-      throw new UnauthorizedException(`Failed to authenticate with ${provider}`);
+    } catch (error: any) {
+      // Логируем детальную информацию об ошибке
+      const errorMessage = error.response?.data?.error?.message || error.message || 'Unknown error';
+      const errorStatus = error.response?.status || 'N/A';
+      
+      console.error(`[${provider.toUpperCase()}] Authentication error:`, {
+        status: errorStatus,
+        message: errorMessage,
+        details: error.response?.data
+      });
+      
+      throw new UnauthorizedException(
+        `Failed to authenticate with ${provider}: ${errorMessage} (Status: ${errorStatus})`
+      );
     }
   }
 
