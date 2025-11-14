@@ -12,6 +12,7 @@ import { User } from '../user/user.entity';
 import { FilterQuery, FilterBody } from '../../common/decorators/filter.decorator';
 import { FilterRequestDto } from '../../common/dto/filter.dto';
 import { PasswordGeneratorService } from '../../common/services/password-generator.service';
+import { FriendRequestService } from '../friend-request/friend-request.service';
 import axios from 'axios';
 
 export interface GoogleCallbackRequest extends Request {
@@ -26,6 +27,7 @@ export class AuthController {
     private readonly emailNewService: EmailNewService,
     private readonly userService: UserService,
     private readonly passwordGeneratorService: PasswordGeneratorService,
+    private readonly friendRequestService: FriendRequestService,
   ) {}
 
   @Get('google')
@@ -216,6 +218,11 @@ export class AuthController {
 
         const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
+        // Получаем список ID пользователей, которым отправлены заявки
+        const sentFriendRequestIds = await this.friendRequestService.getSentFriendRequestIds(user.id);
+        // Получаем список ID друзей
+        const friendIds = await this.friendRequestService.getFriendIds(user.id);
+        
         return {
           id: formattedResponse.id,
           email: formattedResponse.email,
@@ -228,7 +235,9 @@ export class AuthController {
           roleId: formattedResponse.roleId,
           isActive: formattedResponse.isActive,
           role: formattedResponse.role,
-          permissions: formattedResponse.permissions
+          permissions: formattedResponse.permissions,
+          sentFriendRequestIds,
+          friendIds
         };
       } else {
         // Это Google access token, используем новую единую логику
@@ -246,6 +255,11 @@ export class AuthController {
 
         const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
+        // Получаем список ID пользователей, которым отправлены заявки
+        const sentFriendRequestIds = await this.friendRequestService.getSentFriendRequestIds(user.id);
+        // Получаем список ID друзей
+        const friendIds = await this.friendRequestService.getFriendIds(user.id);
+        
         return {
           id: formattedResponse.id,
           email: formattedResponse.email,
@@ -259,7 +273,9 @@ export class AuthController {
           isActive: formattedResponse.isActive,
           role: formattedResponse.role,
           permissions: formattedResponse.permissions,
-          jwtToken // Возвращаем JWT токен для клиента
+          jwtToken, // Возвращаем JWT токен для клиента
+          sentFriendRequestIds,
+          friendIds
         };
       }
     } catch (error: any) {
@@ -340,6 +356,11 @@ export class AuthController {
 
         const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
+        // Получаем список ID пользователей, которым отправлены заявки
+        const sentFriendRequestIds = await this.friendRequestService.getSentFriendRequestIds(user.id);
+        // Получаем список ID друзей
+        const friendIds = await this.friendRequestService.getFriendIds(user.id);
+        
         return {
           id: formattedResponse.id,
           default_email: formattedResponse.email,
@@ -352,7 +373,9 @@ export class AuthController {
           roleId: formattedResponse.roleId,
           isActive: formattedResponse.isActive,
           role: formattedResponse.role,
-          permissions: formattedResponse.permissions
+          permissions: formattedResponse.permissions,
+          sentFriendRequestIds,
+          friendIds
         };
       } else {
         // Это Yandex access token, используем новую единую логику
@@ -376,6 +399,11 @@ export class AuthController {
 
         const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
+        // Получаем список ID пользователей, которым отправлены заявки
+        const sentFriendRequestIds = await this.friendRequestService.getSentFriendRequestIds(user.id);
+        // Получаем список ID друзей
+        const friendIds = await this.friendRequestService.getFriendIds(user.id);
+        
         return {
           id: formattedResponse.id,
           default_email: formattedResponse.email,
@@ -389,7 +417,9 @@ export class AuthController {
           isActive: formattedResponse.isActive,
           role: formattedResponse.role,
           permissions: formattedResponse.permissions,
-          jwtToken // Возвращаем JWT токен для клиента
+          jwtToken, // Возвращаем JWT токен для клиента
+          sentFriendRequestIds,
+          friendIds
         };
       }
     } catch (error) {

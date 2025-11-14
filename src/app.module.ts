@@ -12,6 +12,7 @@ import { RoleModule } from './entities/role/role.module';
 import { FileModule } from './entities/file/file.module';
 import { StatisticsModule } from './entities/statistics/statistics.module';
 import { EventModule } from './entities/event/event.module';
+import { FriendRequestModule } from './entities/friend-request/friend-request.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { EventModule } from './entities/event/event.module';
     FileModule,
     StatisticsModule,
     EventModule,
+    FriendRequestModule,
   ],
   controllers: [AppController],
   providers: [AppService],

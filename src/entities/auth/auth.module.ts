@@ -11,6 +11,7 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { UserModule } from '../user/user.module';
 import { CommonModule } from '../../common/common.module';
 import { RoleModule } from '../role/role.module';
+import { FriendRequestModule } from '../friend-request/friend-request.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { RoleModule } from '../role/role.module';
     UserModule,
     CommonModule,
     RoleModule,
+    FriendRequestModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
