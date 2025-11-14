@@ -30,6 +30,18 @@ export class Event {
   @Column({ type: 'text', nullable: true })
   address?: string; // Адрес события
 
+  @Column({ type: 'text', nullable: true })
+  addressComment?: string; // Комментарий к адресу
+
+  @Column({ type: 'int', nullable: true })
+  entrance?: number; // Подъезд
+
+  @Column({ type: 'int', nullable: true })
+  floor?: number; // Этаж
+
+  @Column({ type: 'int', nullable: true })
+  apartment?: number; // Квартира
+
   @Column({ type: 'int', nullable: true })
   maxParticipants?: number; // Максимальное количество людей
 

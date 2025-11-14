@@ -13,6 +13,10 @@ export interface CreateEventDto {
   latitude?: number;
   longitude?: number;
   address?: string;
+  addressComment?: string;
+  entrance?: number;
+  floor?: number;
+  apartment?: number;
   maxParticipants?: number;
   minAge?: number;
   maxAge?: number;
@@ -28,6 +32,10 @@ export interface UpdateEventDto {
   latitude?: number;
   longitude?: number;
   address?: string;
+  addressComment?: string;
+  entrance?: number;
+  floor?: number;
+  apartment?: number;
   maxParticipants?: number;
   minAge?: number;
   maxAge?: number;
@@ -44,8 +52,12 @@ export class EventService {
   ) {}
 
   async create(eventData: CreateEventDto, creatorId: string): Promise<Event> {
+    // Устанавливаем значения по умолчанию для entrance, floor, apartment
     const event = this.eventRepository.create({
       ...eventData,
+      entrance: eventData.entrance ?? 1,
+      floor: eventData.floor ?? 1,
+      apartment: eventData.apartment ?? 1,
       creatorId,
     });
     return await this.eventRepository.save(event);
