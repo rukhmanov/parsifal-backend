@@ -13,6 +13,7 @@ import { FileModule } from './entities/file/file.module';
 import { StatisticsModule } from './entities/statistics/statistics.module';
 import { EventModule } from './entities/event/event.module';
 import { FriendRequestModule } from './entities/friend-request/friend-request.module';
+import { EventParticipationRequestModule } from './entities/event-participation-request/event-participation-request.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { FriendRequestModule } from './entities/friend-request/friend-request.mo
     StatisticsModule,
     EventModule,
     FriendRequestModule,
+    EventParticipationRequestModule,
   ],
   controllers: [AppController],
   providers: [AppService],

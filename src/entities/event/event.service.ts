@@ -131,5 +131,28 @@ export class EventService {
     event.participants = event.participants.filter(p => p.id !== userId);
     return await this.eventRepository.save(event);
   }
+
+  /**
+   * Получить список участников события
+   */
+  async getParticipants(eventId: string): Promise<any[]> {
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      relations: ['participants']
+    });
+
+    if (!event) {
+      throw new NotFoundException('Событие не найдено');
+    }
+
+    return event.participants.map(participant => ({
+      id: participant.id,
+      email: participant.email,
+      firstName: participant.firstName,
+      lastName: participant.lastName,
+      displayName: participant.displayName,
+      avatar: participant.avatar,
+    }));
+  }
 }
 

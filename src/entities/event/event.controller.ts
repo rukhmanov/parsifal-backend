@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, ForbiddenException, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, ForbiddenException, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { EventService, CreateEventDto, UpdateEventDto } from './event.service';
 import { Event } from './event.entity';
@@ -90,20 +90,57 @@ export class EventController {
   }
 
   @Post(':id/participants')
-  @ApiOperation({ summary: 'Добавить участника к событию' })
-  @ApiResponse({ status: 200, description: 'Участник добавлен успешно' })
+  @ApiOperation({ summary: 'Подать заявку на участие в событии (устаревший метод, используйте event-participation-requests)' })
+  @ApiResponse({ status: 200, description: 'Заявка создана успешно' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  async addParticipant(@Param('id') eventId: string, @Request() req: any): Promise<Event | null> {
+  async addParticipant(@Param('id') _eventId: string, @Request() req: any): Promise<Event | null> {
     const user = req.user;
     if (!user) {
       throw new ForbiddenException('Пользователь не авторизован');
     }
-    return this.eventService.addParticipant(eventId, user.id);
+    // Теперь этот метод создает заявку, а не сразу добавляет участника
+    // Для обратной совместимости оставляем, но логика изменена
+    // Вместо прямого добавления нужно использовать систему заявок
+    // Этот endpoint больше не должен использоваться напрямую
+    throw new BadRequestException('Используйте систему заявок для присоединения к событию');
+  }
+
+  @Delete(':id/participants/:userId')
+  @ApiOperation({ summary: 'Удалить участника из события (только для создателя)' })
+  @ApiResponse({ status: 200, description: 'Участник удален успешно' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  async removeParticipantByCreator(
+    @Param('id') eventId: string,
+    @Param('userId') userId: string,
+    @Request() req: any
+  ): Promise<Event | null> {
+    const user = req.user;
+    if (!user) {
+      throw new ForbiddenException('Пользователь не авторизован');
+    }
+
+    const event = await this.eventService.findById(eventId);
+    if (!event) {
+      throw new ForbiddenException('Событие не найдено');
+    }
+
+    // Проверяем, что пользователь является создателем события
+    if (event.creatorId !== user.id) {
+      throw new ForbiddenException('Только создатель события может удалять участников');
+    }
+
+    // Нельзя удалить создателя
+    if (userId === event.creatorId) {
+      throw new ForbiddenException('Нельзя удалить создателя события');
+    }
+
+    return this.eventService.removeParticipant(eventId, userId);
   }
 
   @Delete(':id/participants')
-  @ApiOperation({ summary: 'Удалить участника из события' })
+  @ApiOperation({ summary: 'Удалить участника из события (текущий пользователь)' })
   @ApiResponse({ status: 200, description: 'Участник удален успешно' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
@@ -113,6 +150,13 @@ export class EventController {
       throw new ForbiddenException('Пользователь не авторизован');
     }
     return this.eventService.removeParticipant(eventId, user.id);
+  }
+
+  @Get(':id/participants')
+  @ApiOperation({ summary: 'Получить список участников события' })
+  @ApiResponse({ status: 200, description: 'Список участников получен успешно' })
+  async getParticipants(@Param('id') eventId: string): Promise<any[]> {
+    return this.eventService.getParticipants(eventId);
   }
 }
 
