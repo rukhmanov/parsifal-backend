@@ -25,6 +25,23 @@ export class ChatService {
     private readonly eventRepository: Repository<Event>,
   ) {}
 
+  /**
+   * Очищает content удаленных сообщений для безопасности
+   */
+  private sanitizeDeletedMessage(message: Message): Message {
+    if (message.isDeleted) {
+      message.content = '';
+    }
+    return message;
+  }
+
+  /**
+   * Очищает content удаленных сообщений в массиве
+   */
+  private sanitizeDeletedMessages(messages: Message[]): Message[] {
+    return messages.map(msg => this.sanitizeDeletedMessage(msg));
+  }
+
   async createChat(createChatDto: CreateChatDto, creatorId: string): Promise<Chat> {
     // Проверяем, что все участники существуют
     const participants = await this.userRepository.find({
@@ -180,7 +197,7 @@ export class ChatService {
         relations: ['sender'],
         order: { createdAt: 'DESC' },
       });
-      (chat as any).lastMessage = lastMessage;
+      (chat as any).lastMessage = lastMessage ? this.sanitizeDeletedMessage(lastMessage) : null;
     }
 
     // Сортируем по дате последнего сообщения
@@ -241,7 +258,8 @@ export class ChatService {
       relations: ['sender'],
     });
 
-    return messageWithSender || savedMessage;
+    const messageToReturn = messageWithSender || savedMessage;
+    return this.sanitizeDeletedMessage(messageToReturn);
   }
 
   async getMessages(
@@ -257,7 +275,6 @@ export class ChatService {
       .createQueryBuilder('message')
       .leftJoinAndSelect('message.sender', 'sender')
       .where('message.chatId = :chatId', { chatId })
-      .andWhere('message.isDeleted = false')
       .orderBy('message.createdAt', 'DESC')
       .limit(limit);
 
@@ -273,7 +290,8 @@ export class ChatService {
       { lastReadAt: new Date() },
     );
 
-    return messages.reverse(); // Возвращаем в хронологическом порядке
+    const reversedMessages = messages.reverse(); // Возвращаем в хронологическом порядке
+    return this.sanitizeDeletedMessages(reversedMessages);
   }
 
   async getNewMessages(
@@ -294,7 +312,6 @@ export class ChatService {
         where: {
           chatId,
           createdAt: MoreThan(after),
-          isDeleted: false,
         },
         relations: ['sender'],
         order: { createdAt: 'ASC' },
@@ -306,7 +323,7 @@ export class ChatService {
           { chatId, userId },
           { lastReadAt: new Date() },
         );
-        return messages;
+        return this.sanitizeDeletedMessages(messages);
       }
 
       // Ждем 1 секунду перед следующей проверкой
@@ -338,7 +355,8 @@ export class ChatService {
     message.content = updateMessageDto.content;
     message.isEdited = true;
 
-    return await this.messageRepository.save(message);
+    const savedMessage = await this.messageRepository.save(message);
+    return this.sanitizeDeletedMessage(savedMessage);
   }
 
   async deleteMessage(messageId: string, userId: string): Promise<void> {
