@@ -147,6 +147,13 @@ export class ChatService {
       throw new ForbiddenException('У вас нет доступа к этому чату');
     }
 
+    // Преобразуем participants из ChatParticipant[] в User[]
+    if (chat.participants && Array.isArray(chat.participants)) {
+      (chat as any).participants = chat.participants
+        .map((p: ChatParticipant) => p.user)
+        .filter((user: User) => user !== null && user !== undefined);
+    }
+
     return chat;
   }
 
@@ -158,8 +165,16 @@ export class ChatService {
 
     const chats = participantChats.map(p => p.chat);
 
-    // Получаем последнее сообщение для каждого чата
+    // Преобразуем участников из ChatParticipant в User для каждого чата
     for (const chat of chats) {
+      // Преобразуем participants из ChatParticipant[] в User[]
+      if (chat.participants && Array.isArray(chat.participants)) {
+        (chat as any).participants = chat.participants
+          .map((p: ChatParticipant) => p.user)
+          .filter((user: User) => user !== null && user !== undefined);
+      }
+
+      // Получаем последнее сообщение для каждого чата
       const lastMessage = await this.messageRepository.findOne({
         where: { chatId: chat.id, isDeleted: false },
         relations: ['sender'],
@@ -192,6 +207,13 @@ export class ChatService {
     const isParticipant = chat.participants.some(p => p.userId === userId);
     if (!isParticipant) {
       throw new ForbiddenException('У вас нет доступа к этому чату');
+    }
+
+    // Преобразуем participants из ChatParticipant[] в User[]
+    if (chat.participants && Array.isArray(chat.participants)) {
+      (chat as any).participants = chat.participants
+        .map((p: ChatParticipant) => p.user)
+        .filter((user: User) => user !== null && user !== undefined);
     }
 
     return chat;
