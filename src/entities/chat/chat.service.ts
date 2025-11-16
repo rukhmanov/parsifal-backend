@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, MoreThan } from 'typeorm';
+import { Repository, In, MoreThan, Not } from 'typeorm';
 import { Chat, ChatType } from './chat.entity';
 import { Message } from './message.entity';
 import { ChatParticipant } from './chat-participant.entity';
@@ -184,6 +184,10 @@ export class ChatService {
 
     // Преобразуем участников из ChatParticipant в User для каждого чата
     for (const chat of chats) {
+      // Находим ChatParticipant для текущего пользователя
+      const participant = participantChats.find(p => p.chatId === chat.id && p.userId === userId);
+      const lastReadAt = participant?.lastReadAt || null;
+
       // Преобразуем participants из ChatParticipant[] в User[]
       if (chat.participants && Array.isArray(chat.participants)) {
         (chat as any).participants = chat.participants
@@ -198,6 +202,30 @@ export class ChatService {
         order: { createdAt: 'DESC' },
       });
       (chat as any).lastMessage = lastMessage ? this.sanitizeDeletedMessage(lastMessage) : null;
+
+      // Подсчитываем непрочитанные сообщения
+      let unreadCount = 0;
+      if (lastReadAt && lastMessage) {
+        // Если есть lastReadAt и есть сообщения, считаем непрочитанные
+        unreadCount = await this.messageRepository.count({
+          where: {
+            chatId: chat.id,
+            isDeleted: false,
+            createdAt: MoreThan(lastReadAt),
+            senderId: Not(userId), // Сообщения не от текущего пользователя
+          },
+        });
+      } else if (!lastReadAt && lastMessage) {
+        // Если нет lastReadAt, но есть сообщения, считаем все сообщения не от пользователя
+        unreadCount = await this.messageRepository.count({
+          where: {
+            chatId: chat.id,
+            isDeleted: false,
+            senderId: Not(userId),
+          },
+        });
+      }
+      (chat as any).unreadCount = unreadCount;
     }
 
     // Сортируем по дате последнего сообщения
@@ -376,6 +404,20 @@ export class ChatService {
     await this.messageRepository.save(message);
   }
 
+  /**
+   * Пометить чат как прочитанный
+   */
+  async markChatAsRead(chatId: string, userId: string): Promise<void> {
+    // Проверяем доступ
+    await this.findById(chatId, userId);
+
+    // Обновляем lastReadAt для участника
+    await this.chatParticipantRepository.update(
+      { chatId, userId },
+      { lastReadAt: new Date() },
+    );
+  }
+
   async addParticipant(chatId: string, userId: string, currentUserId: string): Promise<void> {
     await this.findById(chatId, currentUserId);
 
@@ -399,6 +441,32 @@ export class ChatService {
     }
 
     await this.chatParticipantRepository.delete({ chatId, userId });
+  }
+
+  /**
+   * Удалить чат (удаляет участника из чата, если чат не пустой - чат остается)
+   */
+  async deleteChat(chatId: string, userId: string): Promise<void> {
+    // Проверяем доступ
+    await this.findById(chatId, userId);
+
+    // Удаляем участника из чата
+    await this.chatParticipantRepository.delete({ chatId, userId });
+
+    // Проверяем, остались ли участники в чате
+    const remainingParticipants = await this.chatParticipantRepository.count({
+      where: { chatId },
+    });
+
+    // Если участников не осталось, удаляем чат и все связанные данные
+    if (remainingParticipants === 0) {
+      // Удаляем все сообщения
+      await this.messageRepository.delete({ chatId });
+      // Удаляем всех участников (хотя их уже нет)
+      await this.chatParticipantRepository.delete({ chatId });
+      // Удаляем сам чат
+      await this.chatRepository.delete({ id: chatId });
+    }
   }
 }
 

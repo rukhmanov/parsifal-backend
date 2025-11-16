@@ -193,5 +193,29 @@ export class ChatController {
     }
     return this.chatService.removeParticipant(chatId, userId, user.id);
   }
+
+  @Post(':id/read')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Пометить чат как прочитанный' })
+  @ApiResponse({ status: 204, description: 'Чат помечен как прочитанный' })
+  async markChatAsRead(@Param('id') chatId: string, @Request() req: any): Promise<void> {
+    const user = req.user;
+    if (!user) {
+      throw new BadRequestException('Пользователь не авторизован');
+    }
+    return this.chatService.markChatAsRead(chatId, user.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Удалить чат' })
+  @ApiResponse({ status: 204, description: 'Чат удален успешно' })
+  async deleteChat(@Param('id') chatId: string, @Request() req: any): Promise<void> {
+    const user = req.user;
+    if (!user) {
+      throw new BadRequestException('Пользователь не авторизован');
+    }
+    return this.chatService.deleteChat(chatId, user.id);
+  }
 }
 
