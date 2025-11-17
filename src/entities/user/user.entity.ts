@@ -25,6 +25,12 @@ export class User {
   @Column({ type: 'simple-array', nullable: true })
   photos?: string[]; // Фотографии пользователя (до 8)
 
+  @Column({ type: 'date', nullable: true })
+  birthDate?: Date; // Дата рождения
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  gender?: 'male' | 'female'; // Пол пользователя
+
   @Column({ nullable: true })
   password?: string; // Только для локальных пользователей
 

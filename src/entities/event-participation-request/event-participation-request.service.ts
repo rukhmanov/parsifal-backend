@@ -77,7 +77,17 @@ export class EventParticipationRequestService {
   /**
    * Отправить заявку на участие в событии (от пользователя)
    */
-  async sendApplication(eventId: string, userId: string): Promise<EventParticipationRequest> {
+  async sendApplication(
+    eventId: string, 
+    userId: string,
+    requirementsData?: {
+      ageMatches?: boolean;
+      genderMatches?: boolean;
+      itemsCanBring?: string[];
+      canBringMoney?: boolean;
+      meetsRequirements?: boolean;
+    }
+  ): Promise<EventParticipationRequest> {
     // Проверяем, что событие существует
     const event = await this.eventRepository.findOne({ where: { id: eventId } });
     if (!event) {
@@ -107,12 +117,17 @@ export class EventParticipationRequestService {
       throw new BadRequestException('Заявка уже существует');
     }
 
-    // Создаем новую заявку
+    // Создаем новую заявку с информацией о соответствии требованиям
     const request = this.requestRepository.create({
       eventId,
       userId,
       status: 'pending',
-      type: 'application'
+      type: 'application',
+      ageMatches: requirementsData?.ageMatches,
+      genderMatches: requirementsData?.genderMatches,
+      itemsCanBring: requirementsData?.itemsCanBring,
+      canBringMoney: requirementsData?.canBringMoney,
+      meetsRequirements: requirementsData?.meetsRequirements ?? false
     });
 
     return await this.requestRepository.save(request);
@@ -288,6 +303,11 @@ export class EventParticipationRequestService {
         displayName: request.user.displayName,
         avatar: request.user.avatar,
       },
+      ageMatches: request.ageMatches,
+      genderMatches: request.genderMatches,
+      itemsCanBring: request.itemsCanBring,
+      canBringMoney: request.canBringMoney,
+      meetsRequirements: request.meetsRequirements,
       createdAt: request.createdAt
     }));
   }

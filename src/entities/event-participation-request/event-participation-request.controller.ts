@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Get, Param, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Param, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { EventParticipationRequestService } from './event-participation-request.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -31,10 +31,17 @@ export class EventParticipationRequestController {
   @HttpCode(HttpStatus.CREATED)
   async sendApplication(
     @Param('eventId') eventId: string,
+    @Body() body: {
+      ageMatches?: boolean;
+      genderMatches?: boolean;
+      itemsCanBring?: string[];
+      canBringMoney?: boolean;
+      meetsRequirements?: boolean;
+    },
     @Request() req: any
   ) {
     const userId = req.user.id;
-    return await this.requestService.sendApplication(eventId, userId);
+    return await this.requestService.sendApplication(eventId, userId, body);
   }
 
   @Post('accept/:requestId')

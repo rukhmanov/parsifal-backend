@@ -20,6 +20,21 @@ export class EventParticipationRequest {
   @Column({ type: 'varchar', length: 20, default: 'invitation' })
   type!: 'invitation' | 'application'; // Тип заявки: приглашение (от создателя) или заявка (от пользователя)
 
+  @Column({ type: 'boolean', nullable: true })
+  ageMatches?: boolean; // Соответствует ли возраст требованиям
+
+  @Column({ type: 'boolean', nullable: true })
+  genderMatches?: boolean; // Соответствует ли пол требованиям
+
+  @Column({ type: 'simple-array', nullable: true })
+  itemsCanBring?: string[]; // Вещи, которые пользователь может взять
+
+  @Column({ type: 'boolean', nullable: true })
+  canBringMoney?: boolean; // Может ли пользователь взять деньги
+
+  @Column({ type: 'boolean', default: false })
+  meetsRequirements!: boolean; // Соответствует ли всем требованиям
+
   @ManyToOne(() => Event, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'eventId' })
   event!: Event;
