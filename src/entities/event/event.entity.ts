@@ -54,6 +54,12 @@ export class Event {
   @Column({ type: 'varchar', length: 20, nullable: true })
   preferredGender?: 'male' | 'female' | 'any'; // Предпочтительный пол участников
 
+  @Column({ type: 'text', nullable: true })
+  coverImage?: string; // Заставка события
+
+  @Column({ type: 'int', nullable: true })
+  duration?: number; // Длительность события в минутах
+
   @Column()
   creatorId!: string; // ID создателя события
 

@@ -22,6 +22,9 @@ export class User {
   @Column({ nullable: true })
   avatar?: string;
 
+  @Column({ type: 'simple-array', nullable: true })
+  photos?: string[]; // Фотографии пользователя (до 8)
+
   @Column({ nullable: true })
   password?: string; // Только для локальных пользователей
 

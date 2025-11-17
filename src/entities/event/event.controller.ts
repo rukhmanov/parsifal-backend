@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, ForbiddenException, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request, ForbiddenException, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { EventService, CreateEventDto, UpdateEventDto } from './event.service';
 import { Event } from './event.entity';
@@ -23,10 +23,27 @@ export class EventController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Получить список всех событий' })
+  @ApiOperation({ summary: 'Получить список всех событий (только будущие)' })
   @ApiResponse({ status: 200, description: 'Список событий получен успешно' })
   async findAll(): Promise<Event[]> {
     return this.eventService.findAll();
+  }
+
+  @Get('my-events')
+  @ApiOperation({ summary: 'Получить события текущего пользователя' })
+  @ApiResponse({ status: 200, description: 'Список событий пользователя получен успешно' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  async getMyEvents(
+    @Request() req: any,
+    @Query('includePast') includePast?: string
+  ): Promise<Event[]> {
+    const user = req.user;
+    if (!user) {
+      throw new ForbiddenException('Пользователь не авторизован');
+    }
+    const includePastBool = includePast === 'true';
+    return this.eventService.findUserEvents(user.id, includePastBool);
   }
 
   @Get(':id')

@@ -63,6 +63,19 @@ export class EventParticipationRequestController {
     return { message: 'Заявка отклонена' };
   }
 
+  @Delete('request/:requestId')
+  @ApiOperation({ summary: 'Отменить заявку/приглашение по ID заявки' })
+  @ApiResponse({ status: 200, description: 'Заявка отменена' })
+  @HttpCode(HttpStatus.OK)
+  async cancelRequestById(
+    @Param('requestId') requestId: string,
+    @Request() req: any
+  ) {
+    const currentUserId = req.user.id;
+    await this.requestService.cancelRequestById(requestId, currentUserId);
+    return { message: 'Заявка отменена' };
+  }
+
   @Delete(':eventId/:userId')
   @ApiOperation({ summary: 'Отменить заявку/приглашение' })
   @ApiResponse({ status: 200, description: 'Заявка отменена' })

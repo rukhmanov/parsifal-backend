@@ -21,6 +21,8 @@ export interface CreateEventDto {
   minAge?: number;
   maxAge?: number;
   preferredGender?: 'male' | 'female' | 'any';
+  coverImage?: string;
+  duration?: number;
 }
 
 export interface UpdateEventDto {
@@ -40,6 +42,8 @@ export interface UpdateEventDto {
   minAge?: number;
   maxAge?: number;
   preferredGender?: 'male' | 'female' | 'any';
+  coverImage?: string;
+  duration?: number;
 }
 
 @Injectable()
@@ -64,10 +68,41 @@ export class EventService {
   }
 
   async findAll(): Promise<Event[]> {
+    const now = new Date();
+    return await this.eventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.creator', 'creator')
+      .leftJoinAndSelect('event.participants', 'participants')
+      .where('event.dateTime >= :now', { now })
+      .orderBy('event.dateTime', 'ASC')
+      .getMany();
+  }
+
+  async findAllIncludingPast(): Promise<Event[]> {
     return await this.eventRepository.find({
       relations: ['creator', 'participants'],
       order: { dateTime: 'ASC' }
     });
+  }
+
+  async findUserEvents(userId: string, includePast: boolean = false): Promise<Event[]> {
+    const queryBuilder = this.eventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.creator', 'creator')
+      .leftJoinAndSelect('event.participants', 'participants')
+      .where('event.creatorId = :userId', { userId });
+
+    if (includePast) {
+      // Для завершенных событий: только прошедшие
+      queryBuilder.andWhere('event.dateTime < :now', { now: new Date() });
+      queryBuilder.orderBy('event.dateTime', 'DESC'); // Сначала самые недавние
+    } else {
+      // Для текущих событий: только будущие
+      queryBuilder.andWhere('event.dateTime >= :now', { now: new Date() });
+      queryBuilder.orderBy('event.dateTime', 'ASC'); // Сначала ближайшие
+    }
+
+    return await queryBuilder.getMany();
   }
 
   async findById(id: string): Promise<Event | null> {

@@ -26,6 +26,7 @@ export interface UpdateUserDto {
   lastName?: string;
   displayName?: string;
   avatar?: string;
+  photos?: string[];
   roleId?: string;
   isActive?: boolean;
 }

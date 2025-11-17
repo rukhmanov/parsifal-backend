@@ -107,6 +107,112 @@ export class FileController {
     };
   }
 
+  @Post('upload-user-photos')
+  @UseInterceptors(FileInterceptor('photo'))
+  async uploadUserPhotos(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: AuthenticatedRequest,
+    @Body('userId') targetUserId?: string,
+  ) {
+    if (!file) {
+      throw new Error('No photo uploaded');
+    }
+
+    // Проверяем, что пользователь аутентифицирован
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Определяем ID пользователя для загрузки фото
+    let userId: string;
+    
+    if (targetUserId) {
+      userId = targetUserId;
+    } else {
+      userId = req.user.sub;
+      
+      if (!userId) {
+        throw new Error('User ID not found in token');
+      }
+    }
+
+    // Получаем текущего пользователя для проверки количества фотографий
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Проверяем, что у пользователя меньше 8 фотографий
+    const currentPhotos = user.photos || [];
+    if (currentPhotos.length >= 8) {
+      throw new Error('Maximum 8 photos allowed');
+    }
+    
+    const timestamp = Date.now();
+    const fileKey = `users/${userId}/photos/${timestamp}-${file.originalname}`;
+    
+    const fileUrl = await this.s3Service.uploadFile(file, fileKey);
+    
+    // Добавляем новую фотографию в массив
+    const updatedPhotos = [...currentPhotos, fileUrl];
+    await this.userService.update(userId, { photos: updatedPhotos });
+    
+    return {
+      success: true,
+      url: fileUrl,
+      photos: updatedPhotos,
+      message: 'Photo uploaded successfully',
+    };
+  }
+
+  @Delete('user-photos/:photoIndex')
+  async deleteUserPhotoByIndex(
+    @Param('photoIndex') photoIndex: string,
+    @Request() req: AuthenticatedRequest,
+    @Body('userId') targetUserId?: string,
+  ) {
+    // Проверяем, что пользователь аутентифицирован
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Определяем ID пользователя
+    let userId: string;
+    
+    if (targetUserId) {
+      userId = targetUserId;
+    } else {
+      userId = req.user.sub;
+      
+      if (!userId) {
+        throw new Error('User ID not found in token');
+      }
+    }
+
+    // Получаем текущего пользователя
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const currentPhotos = user.photos || [];
+    const index = parseInt(photoIndex);
+    
+    if (index < 0 || index >= currentPhotos.length) {
+      throw new Error('Invalid photo index');
+    }
+
+    // Удаляем фотографию из массива
+    const updatedPhotos = currentPhotos.filter((_, i) => i !== index);
+    await this.userService.update(userId, { photos: updatedPhotos });
+    
+    return {
+      success: true,
+      photos: updatedPhotos,
+      message: 'Photo deleted successfully',
+    };
+  }
+
   @Get('tree')
   @ApiOperation({ summary: 'Получить дерево файлов' })
   @ApiResponse({ status: 200, description: 'Дерево файлов получено успешно' })

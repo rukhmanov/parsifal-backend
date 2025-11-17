@@ -195,6 +195,35 @@ export class EventParticipationRequestService {
   }
 
   /**
+   * Отменить заявку/приглашение по ID заявки
+   */
+  async cancelRequestById(requestId: string, currentUserId: string): Promise<void> {
+    const request = await this.requestRepository.findOne({
+      where: { id: requestId },
+      relations: ['event']
+    });
+
+    if (!request) {
+      throw new NotFoundException('Заявка не найдена');
+    }
+
+    // Проверяем права: отменить может только тот, кто отправил
+    if (request.type === 'invitation') {
+      // Для приглашений может отменить только создатель события
+      if (!request.event || request.event.creatorId !== currentUserId) {
+        throw new ForbiddenException('Только создатель события может отменить приглашение');
+      }
+    } else {
+      // Для заявок может отменить только пользователь, который подал заявку
+      if (request.userId !== currentUserId) {
+        throw new ForbiddenException('Только автор заявки может ее отменить');
+      }
+    }
+
+    await this.requestRepository.remove(request);
+  }
+
+  /**
    * Отменить заявку/приглашение
    */
   async cancelRequest(eventId: string, userId: string, currentUserId: string): Promise<void> {
@@ -333,20 +362,29 @@ export class EventParticipationRequestService {
    */
   async getSentApplications(userId: string): Promise<any[]> {
     const requests = await this.requestRepository.find({
-      where: { userId, type: 'application', status: 'pending' },
-      relations: ['event', 'event.creator'],
+      where: { userId, type: 'application' },
+      relations: ['event', 'event.creator', 'event.participants'],
       order: { createdAt: 'DESC' }
     });
 
     return requests.map(request => ({
       id: request.id,
       eventId: request.event.id,
+      status: request.status,
       event: {
         id: request.event.id,
         title: request.event.title,
         description: request.event.description,
         dateTime: request.event.dateTime,
         address: request.event.address,
+        maxParticipants: request.event.maxParticipants,
+        participants: request.event.participants?.map(p => ({
+          id: p.id,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          displayName: p.displayName,
+          avatar: p.avatar,
+        })) || [],
         creator: {
           id: request.event.creator.id,
           firstName: request.event.creator.firstName,
