@@ -26,11 +26,11 @@ import { ChatModule } from './entities/chat/chat.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get('DB_PORT', 5432),
-        username: configService.get('DB_USERNAME', 'aleksrukhmanov'),
-        password: configService.get('DB_PASSWORD', ''),
-        database: configService.get('DB_NAME', 'parsifal_db'),
+        host: configService.get('POSTGRESQL_HOST', 'localhost'),
+        port: configService.get('POSTGRESQL_PORT', 5432),
+        username: configService.get('POSTGRESQL_USER', 'aleksrukhmanov'),
+        password: configService.get('POSTGRESQL_PASSWORD', ''),
+        database: configService.get('POSTGRESQL_DBNAME', 'parsifal_db'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: configService.get('NODE_ENV') !== 'production', // Только для разработки
         logging: false,
