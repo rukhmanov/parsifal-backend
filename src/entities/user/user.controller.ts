@@ -142,6 +142,7 @@ export class UserController {
       let updateData: Partial<UpdateUserDto> = { ...dataWithoutDisplayName };
       
       // Проверяем, что gender и birthDate не изменяются, если они уже установлены
+      // Но разрешаем их установку, если они еще не установлены
       if (currentUser.gender && 'gender' in updateData && updateData.gender !== currentUser.gender) {
         throw new ForbiddenException('Нельзя изменить пол, так как он был установлен при регистрации');
       }
@@ -165,12 +166,32 @@ export class UserController {
         }
       }
       
-      // Удаляем gender и birthDate из updateData, если они заблокированы
-      if (currentUser.gender) {
-        delete updateData.gender;
+      // Удаляем gender и birthDate из updateData, если они уже установлены (заблокированы)
+      // Но оставляем их, если они еще не установлены (разрешаем установку)
+      if (currentUser.gender && 'gender' in updateData) {
+        // Если значение не изменилось, удаляем из updateData (не нужно обновлять)
+        if (updateData.gender === currentUser.gender) {
+          delete updateData.gender;
+        }
       }
-      if (currentUser.birthDate) {
-        delete updateData.birthDate;
+      if (currentUser.birthDate && 'birthDate' in updateData) {
+        // Если значение не изменилось, удаляем из updateData (не нужно обновлять)
+        const currentBirthDate = currentUser.birthDate instanceof Date 
+          ? currentUser.birthDate.toISOString().split('T')[0]
+          : new Date(currentUser.birthDate).toISOString().split('T')[0];
+        
+        let newBirthDate: string;
+        if (updateData.birthDate instanceof Date) {
+          newBirthDate = updateData.birthDate.toISOString().split('T')[0];
+        } else if (typeof updateData.birthDate === 'string') {
+          newBirthDate = new Date(updateData.birthDate).toISOString().split('T')[0];
+        } else {
+          newBirthDate = '';
+        }
+        
+        if (currentBirthDate === newBirthDate) {
+          delete updateData.birthDate;
+        }
       }
       
       // Если нужно удалить фото, устанавливаем avatar в null
@@ -193,11 +214,22 @@ export class UserController {
       }
       
       // Преобразуем birthDate в Date, если он есть и не заблокирован
-      if (updateData.birthDate && typeof updateData.birthDate === 'string') {
-        updateData.birthDate = new Date(updateData.birthDate) as any;
+      let birthDateAsDate: Date | undefined = undefined;
+      if (updateData.birthDate) {
+        if (updateData.birthDate instanceof Date) {
+          birthDateAsDate = updateData.birthDate;
+        } else if (typeof updateData.birthDate === 'string') {
+          birthDateAsDate = new Date(updateData.birthDate);
+        }
       }
       
-      return this.userService.update(normalizedId, updateData);
+      // Преобразуем updateData в правильный тип для userService.update
+      const finalUpdateData: Partial<User> = {
+        ...updateData,
+        birthDate: birthDateAsDate
+      };
+      
+      return this.userService.update(normalizedId, finalUpdateData);
     }
 
     // Если прав нет - проверяем, что это самообновление
@@ -213,6 +245,14 @@ export class UserController {
 
     const allowedFields = ['firstName', 'lastName'];
     const restrictedFields = ['email', 'roleId', 'isActive', 'authProvider', 'providerId'];
+
+    // Добавляем gender и birthDate в разрешенные поля, если они еще не установлены
+    if (!currentUser.gender && 'gender' in dataWithoutDisplayName) {
+      allowedFields.push('gender');
+    }
+    if (!currentUser.birthDate && 'birthDate' in dataWithoutDisplayName) {
+      allowedFields.push('birthDate');
+    }
 
     // Проверяем, что gender и birthDate не изменяются, если они уже установлены
     if (currentUser.gender && 'gender' in dataWithoutDisplayName) {
@@ -286,6 +326,19 @@ export class UserController {
       updateData.lastName = dataWithoutDisplayName.lastName;
     }
     
+    // Добавляем gender и birthDate, если они разрешены (еще не установлены)
+    if (!currentUser.gender && 'gender' in dataWithoutDisplayName) {
+      updateData.gender = dataWithoutDisplayName.gender;
+    }
+    if (!currentUser.birthDate && 'birthDate' in dataWithoutDisplayName) {
+      const birthDateValue = (dataWithoutDisplayName as any).birthDate;
+      if (birthDateValue instanceof Date) {
+        updateData.birthDate = birthDateValue;
+      } else if (typeof birthDateValue === 'string') {
+        updateData.birthDate = new Date(birthDateValue);
+      }
+    }
+    
     // Автоматически формируем displayName из firstName и lastName
     if (updateData.firstName || updateData.lastName) {
       const firstName = updateData.firstName ?? currentUser.firstName;
@@ -295,7 +348,10 @@ export class UserController {
       }
     }
     
-    return this.userService.update(normalizedId, updateData);
+    // Преобразуем updateData в правильный тип для userService.update
+    const finalUpdateData: Partial<User> = updateData as Partial<User>;
+    
+    return this.userService.update(normalizedId, finalUpdateData);
   }
 
   // POST эндпоинт для обновления только фото
