@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsOptional, IsDateString, IsIn } from 'class-validator';
 import { IsStrongPassword } from '../../../common/validators/password.validator';
 
 export class RegisterDto {
@@ -18,4 +18,12 @@ export class RegisterDto {
   @IsString({ message: 'Фамилия должна быть строкой' })
   @IsNotEmpty({ message: 'Фамилия обязательна' })
   lastName!: string;
+
+  @IsOptional()
+  @IsIn(['male', 'female'], { message: 'Пол должен быть male или female' })
+  gender?: 'male' | 'female';
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Некорректная дата рождения' })
+  birthDate?: string;
 }

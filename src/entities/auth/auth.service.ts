@@ -348,7 +348,7 @@ export class AuthService {
 
   // Методы для локальной аутентификации
   async register(registerDto: RegisterDto): Promise<User> {
-    const { email, password, firstName, lastName } = registerDto;
+    const { email, password, firstName, lastName, gender, birthDate } = registerDto;
 
     // Проверяем, существует ли пользователь с таким email
     const existingUser = await this.userService.findByEmail(email);
@@ -359,6 +359,15 @@ export class AuthService {
     // Хешируем пароль
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Конвертируем birthDate из строки в Date, если она есть
+    let birthDateObj: Date | undefined = undefined;
+    if (birthDate) {
+      birthDateObj = new Date(birthDate);
+      if (isNaN(birthDateObj.getTime())) {
+        birthDateObj = undefined;
+      }
+    }
 
     // Создаем нового пользователя без роли (roleId будет null)
     const newUser = await this.userService.create({
@@ -371,6 +380,8 @@ export class AuthService {
       password: hashedPassword,
       isActive: true,
       roleId: undefined, // Пользователь создается без роли
+      gender: gender,
+      birthDate: birthDateObj,
     });
 
     // Возвращаем пользователя без пароля

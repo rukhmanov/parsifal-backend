@@ -27,6 +27,8 @@ export interface UpdateUserDto {
   displayName?: string;
   avatar?: string;
   photos?: string[];
+  gender?: 'male' | 'female';
+  birthDate?: Date | string;
   roleId?: string;
   isActive?: boolean;
 }
@@ -131,7 +133,45 @@ export class UserController {
 
     // Если есть права на редактирование - разрешаем обновление любых полей
     if (hasEditPermission) {
+      // Загружаем текущего пользователя для проверки заблокированных полей
+      const currentUser = await this.userService.findById(normalizedId);
+      if (!currentUser) {
+        throw new ForbiddenException('Пользователь не найден');
+      }
+
       let updateData: Partial<UpdateUserDto> = { ...dataWithoutDisplayName };
+      
+      // Проверяем, что gender и birthDate не изменяются, если они уже установлены
+      if (currentUser.gender && 'gender' in updateData && updateData.gender !== currentUser.gender) {
+        throw new ForbiddenException('Нельзя изменить пол, так как он был установлен при регистрации');
+      }
+      
+      if (currentUser.birthDate && 'birthDate' in updateData) {
+        const currentBirthDate = currentUser.birthDate instanceof Date 
+          ? currentUser.birthDate.toISOString().split('T')[0]
+          : new Date(currentUser.birthDate).toISOString().split('T')[0];
+        
+        let newBirthDate: string;
+        if (updateData.birthDate instanceof Date) {
+          newBirthDate = updateData.birthDate.toISOString().split('T')[0];
+        } else if (typeof updateData.birthDate === 'string') {
+          newBirthDate = new Date(updateData.birthDate).toISOString().split('T')[0];
+        } else {
+          newBirthDate = '';
+        }
+        
+        if (currentBirthDate !== newBirthDate) {
+          throw new ForbiddenException('Нельзя изменить дату рождения, так как она была установлена при регистрации');
+        }
+      }
+      
+      // Удаляем gender и birthDate из updateData, если они заблокированы
+      if (currentUser.gender) {
+        delete updateData.gender;
+      }
+      if (currentUser.birthDate) {
+        delete updateData.birthDate;
+      }
       
       // Если нужно удалить фото, устанавливаем avatar в null
       if (shouldDeleteAvatar) {
@@ -140,19 +180,21 @@ export class UserController {
       
       // Автоматически формируем displayName из firstName и lastName
       if (updateData.firstName || updateData.lastName) {
-        const currentUser = await this.userService.findById(normalizedId);
-        if (currentUser) {
-          const firstName = updateData.firstName ?? currentUser.firstName;
-          const lastName = updateData.lastName ?? currentUser.lastName;
-          if (firstName && lastName) {
-            (updateData as any).displayName = `${firstName} ${lastName}`;
-          }
+        const firstName = updateData.firstName ?? currentUser.firstName;
+        const lastName = updateData.lastName ?? currentUser.lastName;
+        if (firstName && lastName) {
+          (updateData as any).displayName = `${firstName} ${lastName}`;
         }
       }
       
       // Преобразуем строковые значения в правильные типы
       if (typeof updateData.isActive === 'string') {
         updateData.isActive = updateData.isActive === 'true';
+      }
+      
+      // Преобразуем birthDate в Date, если он есть и не заблокирован
+      if (updateData.birthDate && typeof updateData.birthDate === 'string') {
+        updateData.birthDate = new Date(updateData.birthDate) as any;
       }
       
       return this.userService.update(normalizedId, updateData);
@@ -171,6 +213,33 @@ export class UserController {
 
     const allowedFields = ['firstName', 'lastName'];
     const restrictedFields = ['email', 'roleId', 'isActive', 'authProvider', 'providerId'];
+
+    // Проверяем, что gender и birthDate не изменяются, если они уже установлены
+    if (currentUser.gender && 'gender' in dataWithoutDisplayName) {
+      if (dataWithoutDisplayName.gender !== currentUser.gender) {
+        throw new ForbiddenException('Нельзя изменить пол, так как он был установлен при регистрации');
+      }
+    }
+    
+    if (currentUser.birthDate && 'birthDate' in dataWithoutDisplayName) {
+      const currentBirthDate = currentUser.birthDate instanceof Date 
+        ? currentUser.birthDate.toISOString().split('T')[0]
+        : new Date(currentUser.birthDate).toISOString().split('T')[0];
+      
+      let newBirthDate: string;
+      const newValue = (dataWithoutDisplayName as any).birthDate;
+      if (newValue instanceof Date) {
+        newBirthDate = newValue.toISOString().split('T')[0];
+      } else if (typeof newValue === 'string') {
+        newBirthDate = new Date(newValue).toISOString().split('T')[0];
+      } else {
+        newBirthDate = '';
+      }
+      
+      if (currentBirthDate !== newBirthDate) {
+        throw new ForbiddenException('Нельзя изменить дату рождения, так как она была установлена при регистрации');
+      }
+    }
 
     // Проверяем, что не изменяются запрещенные поля
     for (const field of restrictedFields) {
