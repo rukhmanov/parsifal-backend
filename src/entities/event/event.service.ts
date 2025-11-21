@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Event } from './event.entity';
 import { User } from '../user/user.entity';
 import { FilterService } from '../../common/services/filter.service';
+import { ProfanityFilterService } from '../../common/services/profanity-filter.service';
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
 
 export interface CreateEventDto {
@@ -67,9 +68,24 @@ export class EventService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly filterService: FilterService,
+    private readonly profanityFilterService: ProfanityFilterService,
   ) {}
 
   async create(eventData: CreateEventDto, creatorId: string): Promise<Event> {
+    // Проверяем на нецензурные слова
+    if (eventData.title && this.profanityFilterService.containsProfanity(eventData.title)) {
+      throw new BadRequestException('Название события содержит нецензурные слова');
+    }
+    if (eventData.description && this.profanityFilterService.containsProfanity(eventData.description)) {
+      throw new BadRequestException('Описание события содержит нецензурные слова');
+    }
+    if (eventData.address && this.profanityFilterService.containsProfanity(eventData.address)) {
+      throw new BadRequestException('Адрес содержит нецензурные слова');
+    }
+    if (eventData.addressComment && this.profanityFilterService.containsProfanity(eventData.addressComment)) {
+      throw new BadRequestException('Комментарий к адресу содержит нецензурные слова');
+    }
+
     // Устанавливаем значения по умолчанию для entrance, floor, apartment
     const event = this.eventRepository.create({
       ...eventData,
