@@ -73,6 +73,12 @@ export class FileController {
       throw new Error('No photo uploaded');
     }
 
+    // Проверяем размер файла (максимум 10 МБ)
+    const maxFileSize = 10 * 1024 * 1024; // 10 МБ в байтах
+    if (file.size > maxFileSize) {
+      throw new Error('File size exceeds 10 MB limit');
+    }
+
     // Проверяем, что пользователь аутентифицирован
     if (!req.user) {
       throw new Error('User not authenticated');
@@ -116,6 +122,12 @@ export class FileController {
   ) {
     if (!file) {
       throw new Error('No photo uploaded');
+    }
+
+    // Проверяем размер файла (максимум 10 МБ)
+    const maxFileSize = 10 * 1024 * 1024; // 10 МБ в байтах
+    if (file.size > maxFileSize) {
+      throw new Error('File size exceeds 10 MB limit');
     }
 
     // Проверяем, что пользователь аутентифицирован
@@ -172,6 +184,70 @@ export class FileController {
       url: fileUrl,
       photos: updatedPhotos,
       message: 'Photo uploaded successfully',
+    };
+  }
+
+  @Post('user-photos/reorder')
+  @ApiOperation({ summary: 'Изменить порядок фотографий пользователя' })
+  @ApiResponse({ status: 200, description: 'Порядок фотографий успешно изменен' })
+  @ApiBearerAuth('JWT-auth')
+  async reorderPhotos(
+    @Request() req: AuthenticatedRequest,
+    @Body('photos') photos: string[],
+    @Body('userId') targetUserId?: string,
+  ) {
+    // Проверяем, что пользователь аутентифицирован
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Определяем ID пользователя
+    let userId: string;
+    
+    if (targetUserId) {
+      userId = targetUserId;
+    } else {
+      userId = req.user.sub;
+      
+      if (!userId) {
+        throw new Error('User ID not found in token');
+      }
+    }
+
+    // Получаем текущего пользователя
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Валидация: проверяем, что все фото из нового массива существуют в текущем массиве
+    const currentPhotos = user.photos || [];
+    const currentPhotosSet = new Set(currentPhotos);
+    
+    // Проверяем, что все фото из нового массива есть в текущем
+    for (const photo of photos) {
+      if (!currentPhotosSet.has(photo)) {
+        throw new Error(`Photo ${photo} not found in user photos`);
+      }
+    }
+    
+    // Проверяем, что количество фото не изменилось
+    if (photos.length !== currentPhotos.length) {
+      throw new Error('Photo count mismatch');
+    }
+
+    // Обновляем массив photos (первый элемент - главное фото)
+    // Также обновляем avatar для обратной совместимости
+    const mainPhoto = photos.length > 0 ? photos[0] : undefined;
+    await this.userService.update(userId, { 
+      photos: photos,
+      avatar: mainPhoto || undefined // Для обратной совместимости
+    });
+    
+    return {
+      success: true,
+      photos: photos,
+      message: 'Photos reordered successfully',
     };
   }
 
