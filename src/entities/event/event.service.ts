@@ -121,6 +121,14 @@ export class EventService {
     await this.eventRepository.delete(id);
   }
 
+  /**
+   * Удалить все события пользователя
+   * @param userId ID пользователя
+   */
+  async deleteUserEvents(userId: string): Promise<void> {
+    await this.eventRepository.delete({ creatorId: userId });
+  }
+
   async addParticipant(eventId: string, userId: string): Promise<Event | null> {
     const event = await this.eventRepository.findOne({
       where: { id: eventId },

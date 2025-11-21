@@ -154,14 +154,82 @@ export class FileController {
     const fileUrl = await this.s3Service.uploadFile(file, fileKey);
     
     // Добавляем новую фотографию в массив
-    const updatedPhotos = [...currentPhotos, fileUrl];
-    await this.userService.update(userId, { photos: updatedPhotos });
+    // Если это первое фото, оно становится главным (первым в массиве)
+    const updatedPhotos = currentPhotos.length === 0 
+      ? [fileUrl] // Первое фото - главное
+      : [...currentPhotos, fileUrl]; // Остальные добавляем в конец
+    
+    // Обновляем avatar на первый элемент массива (главное фото)
+    const mainPhoto = updatedPhotos[0];
+    
+    await this.userService.update(userId, { 
+      photos: updatedPhotos,
+      avatar: mainPhoto // Обновляем avatar на первый элемент массива
+    });
     
     return {
       success: true,
       url: fileUrl,
       photos: updatedPhotos,
       message: 'Photo uploaded successfully',
+    };
+  }
+
+  @Post('user-photos/:photoIndex/set-main')
+  @ApiOperation({ summary: 'Установить главное фото (переместить на первое место в массиве)' })
+  @ApiResponse({ status: 200, description: 'Главное фото успешно установлено' })
+  @ApiBearerAuth('JWT-auth')
+  async setMainPhoto(
+    @Param('photoIndex') photoIndex: string,
+    @Request() req: AuthenticatedRequest,
+    @Body('userId') targetUserId?: string,
+  ) {
+    // Проверяем, что пользователь аутентифицирован
+    if (!req.user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Определяем ID пользователя
+    let userId: string;
+    
+    if (targetUserId) {
+      userId = targetUserId;
+    } else {
+      userId = req.user.sub;
+      
+      if (!userId) {
+        throw new Error('User ID not found in token');
+      }
+    }
+
+    // Получаем текущего пользователя
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const currentPhotos = user.photos || [];
+    const index = parseInt(photoIndex);
+    
+    if (index < 0 || index >= currentPhotos.length) {
+      throw new Error('Invalid photo index');
+    }
+
+    // Перемещаем фото на первое место в массиве
+    const photoUrl = currentPhotos[index];
+    const updatedPhotos = [photoUrl, ...currentPhotos.filter((_, i) => i !== index)];
+    
+    // Обновляем массив photos (первый элемент - главное фото)
+    // Также обновляем avatar для обратной совместимости
+    await this.userService.update(userId, { 
+      photos: updatedPhotos,
+      avatar: photoUrl // Для обратной совместимости
+    });
+    
+    return {
+      success: true,
+      photos: updatedPhotos,
+      message: 'Main photo set successfully',
     };
   }
 
@@ -204,7 +272,14 @@ export class FileController {
 
     // Удаляем фотографию из массива
     const updatedPhotos = currentPhotos.filter((_, i) => i !== index);
-    await this.userService.update(userId, { photos: updatedPhotos });
+    
+    // Обновляем avatar на первый элемент массива (главное фото)
+    const newMainPhoto = updatedPhotos.length > 0 ? updatedPhotos[0] : undefined;
+    
+    await this.userService.update(userId, { 
+      photos: updatedPhotos,
+      avatar: newMainPhoto // Обновляем avatar на первый элемент массива
+    });
     
     return {
       success: true,

@@ -8,10 +8,11 @@ import { CommonModule } from '../../common/common.module';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { SelfUpdateGuard } from '../../common/guards/self-update.guard';
+import { Event } from '../event/event.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]), 
+    TypeOrmModule.forFeature([User, Event]), 
     CommonModule, 
     PassportModule
   ],

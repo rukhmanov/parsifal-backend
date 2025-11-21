@@ -8,6 +8,7 @@ import { UserService } from '../user/user.service';
 import { User } from '../user/user.entity';
 import * as crypto from 'crypto';
 import { EmailNewService } from '../../common/email-new.service';
+import { S3Service } from '../../common/services/s3.service';
 
 // Единый интерфейс для данных от разных провайдеров
 export interface UnifiedUserData {
@@ -37,6 +38,7 @@ export class AuthService {
     private readonly yandexStrategy: YandexStrategy,
     private readonly userService: UserService,
     private readonly emailNewService: EmailNewService,
+    private readonly s3Service: S3Service,
   ) {}
 
   // Нормализация данных от Google
@@ -116,12 +118,17 @@ export class AuthService {
     if (user) {
       // Обновляем данные существующего пользователя только если явно указано
       if (shouldUpdate) {
-        const updatedUser = await this.userService.update(user.id, {
+        const updateData: any = {
           firstName: userData.firstName,
           lastName: userData.lastName,
           displayName: userData.displayName || `${userData.firstName} ${userData.lastName}`.trim(),
-          avatar: userData.avatar,
-        });
+        };
+        
+        // НЕ обновляем avatar и photos, если они уже есть в БД
+        // Используем фото из БД, а не из провайдера
+        // Это позволяет пользователю управлять своими фото через интерфейс
+        
+        const updatedUser = await this.userService.update(user.id, updateData);
         return updatedUser!;
       } else {
         // Возвращаем существующего пользователя без обновления
@@ -129,17 +136,64 @@ export class AuthService {
       }
     } else {
       // Создаем нового пользователя без роли (roleId будет null)
+      // Сначала создаем пользователя без фото, чтобы получить его ID
       const newUser = await this.userService.create({
         email: userData.email,
         firstName: userData.firstName,
         lastName: userData.lastName,
         displayName: userData.displayName || `${userData.firstName} ${userData.lastName}`.trim(),
-        avatar: userData.avatar,
         authProvider: userData.authProvider,
         providerId: userData.providerId,
         isActive: true,
         roleId: undefined, // Пользователь создается без роли
       });
+      
+      // При первой регистрации скачиваем фото из провайдера и загружаем в наше хранилище
+      const photos: string[] = [];
+      let avatar: string | undefined = undefined;
+      
+      // Если есть фото от провайдера, скачиваем его и загружаем в S3
+      if (userData.avatar && newUser.id) {
+        try {
+          // Определяем расширение файла из URL или используем jpg по умолчанию
+          let extension = 'jpg';
+          try {
+            const urlObj = new URL(userData.avatar);
+            const pathname = urlObj.pathname;
+            const match = pathname.match(/\.(jpg|jpeg|png|gif|webp)/i);
+            if (match) {
+              extension = match[1].toLowerCase();
+            }
+          } catch (e) {
+            // Если не удалось распарсить URL, используем jpg по умолчанию
+          }
+          
+          // Создаем ключ для файла в S3 с реальным ID пользователя
+          const fileKey = `users/${newUser.id}/photos/${Date.now()}-avatar.${extension}`;
+          
+          // Загружаем фото из URL в S3
+          const uploadedUrl = await this.s3Service.uploadFileFromUrl(userData.avatar, fileKey);
+          
+          // Сохраняем ссылку из нашего хранилища
+          photos.push(uploadedUrl);
+          avatar = uploadedUrl;
+          
+          // Обновляем пользователя с загруженным фото
+          await this.userService.update(newUser.id, {
+            avatar: avatar,
+            photos: photos,
+          });
+          
+          // Обновляем объект пользователя
+          newUser.avatar = avatar;
+          newUser.photos = photos;
+        } catch (error) {
+          // Если не удалось загрузить фото, логируем ошибку, но продолжаем
+          console.error('Error uploading avatar from provider:', error);
+          // Пользователь создан без фото, можно будет загрузить позже
+        }
+      }
+      
       return newUser;
     }
   }
@@ -185,8 +239,16 @@ export class AuthService {
         );
         
         if (existingUser && !existingUser.avatar && normalizedData.avatar) {
-          // Если пользователь есть, но нет аватара, обновляем только аватар
-          await this.userService.update(existingUser.id, { avatar: normalizedData.avatar });
+          // Если пользователь есть, но нет аватара (старый пользователь), сохраняем фото
+          const photos = existingUser.photos || [];
+          // Добавляем фото в массив, если его там еще нет
+          if (!photos.includes(normalizedData.avatar)) {
+            photos.push(normalizedData.avatar);
+          }
+          await this.userService.update(existingUser.id, { 
+            avatar: normalizedData.avatar,
+            photos: photos.length > 0 ? photos : undefined
+          });
           const updatedUser = await this.userService.findById(existingUser.id);
           return updatedUser!;
         }
@@ -201,6 +263,29 @@ export class AuthService {
         });
         userInfo = response.data;
         const normalizedData = this.normalizeYandexData(userInfo);
+        
+        // Проверяем, есть ли пользователь в БД
+        const existingUser = await this.userService.findByEmailAndProvider(
+          normalizedData.email, 
+          normalizedData.providerId, 
+          normalizedData.authProvider
+        );
+        
+        if (existingUser && !existingUser.avatar && normalizedData.avatar) {
+          // Если пользователь есть, но нет аватара (старый пользователь), сохраняем фото
+          const photos = existingUser.photos || [];
+          // Добавляем фото в массив, если его там еще нет
+          if (!photos.includes(normalizedData.avatar)) {
+            photos.push(normalizedData.avatar);
+          }
+          await this.userService.update(existingUser.id, { 
+            avatar: normalizedData.avatar,
+            photos: photos.length > 0 ? photos : undefined
+          });
+          const updatedUser = await this.userService.findById(existingUser.id);
+          return updatedUser!;
+        }
+        
         // При валидации токена не обновляем данные пользователя
         return await this.processOAuthUser(normalizedData, false);
       }
@@ -420,13 +505,18 @@ export class AuthService {
       description: permission.description
     })) || [];
 
+    // Главное фото - первый элемент массива photos, или avatar для обратной совместимости
+    const photos = user.photos || [];
+    const mainPhoto = photos.length > 0 ? photos[0] : (user.avatar || null);
+
     return {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
       displayName: user.displayName,
-      avatar: user.avatar,
+      avatar: mainPhoto, // Главное фото (первый элемент массива photos)
+      photos: photos, // Массив всех фотографий
       roleId: user.roleId,
       isActive: user.isActive,
       role: user.role ? { 

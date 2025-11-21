@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { Event } from '../event/event.entity';
 import { FilterService } from '../../common/services/filter.service';
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
 
@@ -10,6 +11,8 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Event)
+    private readonly eventRepository: Repository<Event>,
     private readonly filterService: FilterService,
   ) {}
 
@@ -58,6 +61,9 @@ export class UserService {
   }
 
   async delete(id: string): Promise<void> {
+    // Удаляем все события пользователя перед удалением пользователя
+    await this.eventRepository.delete({ creatorId: id });
+    // Теперь можно безопасно удалить пользователя
     await this.userRepository.delete(id);
   }
 

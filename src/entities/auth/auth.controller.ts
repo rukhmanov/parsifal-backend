@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Query, Req, Res, UseGuards, Body, ValidationPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -13,6 +13,7 @@ import { FilterQuery, FilterBody } from '../../common/decorators/filter.decorato
 import { FilterRequestDto } from '../../common/dto/filter.dto';
 import { PasswordGeneratorService } from '../../common/services/password-generator.service';
 import { FriendRequestService } from '../friend-request/friend-request.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import axios from 'axios';
 
 export interface GoogleCallbackRequest extends Request {
@@ -164,6 +165,19 @@ export class AuthController {
     };
   }
 
+  @Get('me')
+  @ApiOperation({ summary: 'Получить данные текущего пользователя' })
+  @ApiResponse({ status: 200, description: 'Данные пользователя получены успешно' })
+  @ApiResponse({ status: 401, description: 'Не авторизован' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@Req() req: Request): Promise<User | null> {
+    const user = req.user as User;
+    // Возвращаем пользователя в том же формате, что и /users/:id
+    // userService.findById уже загружает роль и пермишены
+    return this.userService.findById(user.id);
+  }
+
   @Post('google/token')
   async exchangeGoogleCode(@Body() body: { code: string; redirectUri: string }): Promise<any> {
     try {
@@ -229,7 +243,8 @@ export class AuthController {
           name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
           given_name: formattedResponse.firstName,
           family_name: formattedResponse.lastName,
-          picture: formattedResponse.avatar,
+          picture: formattedResponse.avatar, // Главное фото (первый элемент массива photos)
+          photos: formattedResponse.photos || [], // Массив всех фотографий
           verified_email: true,
           locale: 'ru',
           roleId: formattedResponse.roleId,
@@ -250,9 +265,6 @@ export class AuthController {
 
         const jwtToken = await this.authService.generateJwtToken(user);
         
-        // Используем аватар из БД, если он есть
-        const avatarUrl = user.avatar;
-
         const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
         // Получаем список ID пользователей, которым отправлены заявки
@@ -266,7 +278,8 @@ export class AuthController {
           name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
           given_name: formattedResponse.firstName,
           family_name: formattedResponse.lastName,
-          picture: avatarUrl,
+          picture: formattedResponse.avatar, // Главное фото (первый элемент массива photos)
+          photos: formattedResponse.photos || [], // Массив всех фотографий
           verified_email: true,
           locale: 'ru',
           roleId: formattedResponse.roleId,
@@ -368,6 +381,7 @@ export class AuthController {
           last_name: formattedResponse.lastName,
           display_name: formattedResponse.displayName,
           default_avatar_id: formattedResponse.avatar || undefined,
+          photos: formattedResponse.photos || [], // Массив всех фотографий
           real_name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
           login: formattedResponse.email.split('@')[0],
           roleId: formattedResponse.roleId,
@@ -388,15 +402,6 @@ export class AuthController {
 
         const jwtToken = await this.authService.generateJwtToken(user);
         
-        // Получаем аватар из Yandex, если его нет в БД
-        let avatarUrl = user.avatar;
-        if (!avatarUrl) {
-          const yandexUserInfo = await this.authService.getYandexUserInfoFromProvider(accessToken);
-          if (yandexUserInfo.default_avatar_id && !yandexUserInfo.is_avatar_empty) {
-            avatarUrl = `https://avatars.yandex.net/get-yapic/${yandexUserInfo.default_avatar_id}/islands-200`;
-          }
-        }
-
         const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
         // Получаем список ID пользователей, которым отправлены заявки
@@ -410,7 +415,8 @@ export class AuthController {
           first_name: formattedResponse.firstName,
           last_name: formattedResponse.lastName,
           display_name: formattedResponse.displayName,
-          default_avatar_id: avatarUrl || undefined,
+          default_avatar_id: formattedResponse.avatar || undefined, // Главное фото (первый элемент массива photos)
+          photos: formattedResponse.photos || [], // Массив всех фотографий
           real_name: formattedResponse.displayName || `${formattedResponse.firstName} ${formattedResponse.lastName}`,
           login: formattedResponse.email.split('@')[0],
           roleId: formattedResponse.roleId,

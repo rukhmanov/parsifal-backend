@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as AWS from 'aws-sdk';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 
 @Injectable()
 export class S3Service {
@@ -249,6 +250,68 @@ export class S3Service {
       return tree;
     } catch (error) {
       this.logger.error(`Error getting file tree: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Загружает файл из URL в S3
+   * @param imageUrl URL изображения
+   * @param key Ключ файла в S3
+   * @param bucketName Имя бакета (опционально)
+   * @returns URL загруженного файла
+   */
+  async uploadFileFromUrl(
+    imageUrl: string,
+    key: string,
+    bucketName?: string,
+  ): Promise<string> {
+    const bucket = bucketName || this.configService.get<string>('S3_BUCKET') || '';
+    
+    try {
+      // Скачиваем изображение по URL
+      const response = await axios.get(imageUrl, {
+        responseType: 'arraybuffer',
+        timeout: 30000, // 30 секунд таймаут
+      });
+
+      // Определяем MIME тип из заголовков или расширения
+      let contentType = 'image/jpeg'; // По умолчанию
+      const contentTypeHeader = response.headers['content-type'];
+      if (contentTypeHeader) {
+        contentType = contentTypeHeader;
+      } else {
+        // Пытаемся определить по расширению
+        const extension = key.split('.').pop()?.toLowerCase();
+        const mimeTypes: { [key: string]: string } = {
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+        };
+        if (extension && mimeTypes[extension]) {
+          contentType = mimeTypes[extension];
+        }
+      }
+
+      // Конвертируем ArrayBuffer в Buffer
+      const buffer = Buffer.from(response.data);
+
+      // Загружаем в S3
+      const uploadParams: AWS.S3.PutObjectRequest = {
+        Bucket: bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+        ACL: 'public-read',
+      };
+
+      const result = await this.s3.upload(uploadParams).promise();
+      this.logger.log(`File uploaded from URL successfully: ${result.Location}`);
+      return result.Location;
+    } catch (error) {
+      this.logger.error(`Error uploading file from URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw error;
     }
   }
