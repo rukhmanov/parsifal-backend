@@ -8,12 +8,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
 import { User } from '../user/user.entity';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Event, User]),
     PassportModule,
-    UserModule
+    UserModule,
+    CommonModule
   ],
   controllers: [EventController],
   providers: [EventService, JwtAuthGuard, JwtStrategy],

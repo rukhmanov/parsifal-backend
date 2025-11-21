@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { EventService, CreateEventDto, UpdateEventDto } from './event.service';
 import { Event } from './event.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { FilterQuery } from '../../common/decorators/filter.decorator';
+import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
 
 @ApiTags('events')
 @Controller('events')
@@ -23,10 +25,16 @@ export class EventController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Получить список всех событий (только будущие)' })
+  @ApiOperation({ summary: 'Получить список всех событий (только будущие) с фильтрацией и пагинацией' })
   @ApiResponse({ status: 200, description: 'Список событий получен успешно' })
-  async findAll(): Promise<Event[]> {
-    return this.eventService.findAll();
+  async findAll(@FilterQuery() filterRequest?: FilterRequestDto): Promise<FilterResponseDto<Event> | Event[]> {
+    // Если есть параметры фильтрации или пагинации, используем метод с фильтрацией
+    if (filterRequest && (filterRequest.pagination || filterRequest.filters || filterRequest.search || filterRequest.sort)) {
+      return this.eventService.findAllWithFilters(filterRequest);
+    }
+    // Иначе возвращаем все события без пагинации (для обратной совместимости)
+    const events = await this.eventService.findAll();
+    return events;
   }
 
   @Get('my-events')

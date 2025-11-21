@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Event } from './event.entity';
 import { User } from '../user/user.entity';
+import { FilterService } from '../../common/services/filter.service';
+import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
 
 export interface CreateEventDto {
   title: string;
@@ -48,11 +50,23 @@ export interface UpdateEventDto {
 
 @Injectable()
 export class EventService {
+  // Конфигурация полей для фильтрации событий
+  private readonly eventFilterFields = [
+    { key: 'title', type: 'string' as const, searchable: true, sortable: true },
+    { key: 'description', type: 'string' as const, searchable: true, sortable: false },
+    { key: 'address', type: 'string' as const, searchable: true, sortable: false },
+    { key: 'dateTime', type: 'date' as const, searchable: false, sortable: true, isRangeFilter: true },
+    { key: 'maxParticipants', type: 'number' as const, searchable: false, sortable: true },
+    { key: 'duration', type: 'number' as const, searchable: false, sortable: true },
+    { key: 'createdAt', type: 'date' as const, searchable: false, sortable: true, isRangeFilter: true },
+  ];
+
   constructor(
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly filterService: FilterService,
   ) {}
 
   async create(eventData: CreateEventDto, creatorId: string): Promise<Event> {
@@ -76,6 +90,27 @@ export class EventService {
       .where('event.dateTime >= :now', { now })
       .orderBy('event.dateTime', 'ASC')
       .getMany();
+  }
+
+  // Получение событий с фильтрацией и пагинацией
+  async findAllWithFilters(request: FilterRequestDto): Promise<FilterResponseDto<Event>> {
+    const now = new Date();
+    const queryBuilder = this.eventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.creator', 'creator')
+      .leftJoinAndSelect('event.participants', 'participants')
+      .where('event.dateTime >= :now', { now });
+
+    // Применяем фильтрацию
+    this.filterService.applyFilters(queryBuilder, request, this.eventFilterFields, 'event');
+
+    // Если сортировка не указана, используем сортировку по дате по умолчанию
+    if (!request.sort) {
+      queryBuilder.orderBy('event.dateTime', 'ASC');
+    }
+
+    // Создаем ответ с пагинацией
+    return await this.filterService.createPaginatedResponse(queryBuilder, request);
   }
 
   async findAllIncludingPast(): Promise<Event[]> {
