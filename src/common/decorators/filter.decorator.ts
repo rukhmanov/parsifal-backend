@@ -13,7 +13,7 @@ export const FilterQuery = createParamDecorator(
 
     // Глобальный поиск
     if (query.search) {
-      filterRequest.search = query.search;
+      filterRequest.search = typeof query.search === 'string' ? query.search.trim() : query.search;
     }
 
     // Фильтры по полям
@@ -30,7 +30,8 @@ export const FilterQuery = createParamDecorator(
           } else if (value === 'true' || value === 'false') {
             filters[fieldName] = value === 'true';
           } else {
-            filters[fieldName] = value;
+            // Обрезаем пробелы для строковых значений
+            filters[fieldName] = typeof value === 'string' ? value.trim() : value;
           }
         }
       }
