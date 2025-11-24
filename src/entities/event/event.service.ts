@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Event } from './event.entity';
@@ -6,6 +6,8 @@ import { User } from '../user/user.entity';
 import { FilterService } from '../../common/services/filter.service';
 import { ProfanityFilterService } from '../../common/services/profanity-filter.service';
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/notification.entity';
 
 export interface CreateEventDto {
   title: string;
@@ -69,6 +71,8 @@ export class EventService {
     private readonly userRepository: Repository<User>,
     private readonly filterService: FilterService,
     private readonly profanityFilterService: ProfanityFilterService,
+    @Inject(forwardRef(() => NotificationService))
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(eventData: CreateEventDto, creatorId: string): Promise<Event> {
@@ -223,7 +227,20 @@ export class EventService {
     }
 
     event.participants = event.participants.filter(p => p.id !== userId);
-    return await this.eventRepository.save(event);
+    const savedEvent = await this.eventRepository.save(event);
+
+    // Создаем уведомление для удаленного участника
+    try {
+      await this.notificationService.createNotification({
+        userId: userId,
+        type: NotificationType.EVENT_PARTICIPANT_REMOVED,
+        eventId: eventId,
+      });
+    } catch (error) {
+      console.error('Ошибка создания уведомления об удалении из события:', error);
+    }
+
+    return savedEvent;
   }
 
   /**

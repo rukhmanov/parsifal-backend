@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, MoreThan, Not } from 'typeorm';
 import { Chat, ChatType } from './chat.entity';
@@ -9,6 +9,8 @@ import { Event } from '../event/event.entity';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/notification.entity';
 
 @Injectable()
 export class ChatService {
@@ -23,6 +25,8 @@ export class ChatService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
+    @Inject(forwardRef(() => NotificationService))
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -286,6 +290,31 @@ export class ChatService {
       relations: ['sender'],
     });
 
+    // Получаем всех участников чата для создания уведомлений
+    const participants = await this.chatParticipantRepository.find({
+      where: { chatId },
+      relations: ['user'],
+    });
+
+    // Создаем уведомления для всех участников чата, кроме отправителя
+    try {
+      const notificationPromises = participants
+        .filter(p => p.userId !== senderId)
+        .map(participant =>
+          this.notificationService.createNotification({
+            userId: participant.userId,
+            type: NotificationType.MESSAGE_RECEIVED,
+            actorId: senderId,
+            chatId: chatId,
+          })
+        );
+      
+      await Promise.all(notificationPromises);
+    } catch (error) {
+      console.error('Ошибка создания уведомлений о сообщении:', error);
+      // Не прерываем выполнение, если уведомления не создались
+    }
+
     const messageToReturn = messageWithSender || savedMessage;
     return this.sanitizeDeletedMessage(messageToReturn);
   }
@@ -444,26 +473,37 @@ export class ChatService {
   }
 
   /**
-   * Удалить чат (удаляет участника из чата, если чат не пустой - чат остается)
+   * Удалить чат
+   * Для личных чатов (USER) между 2 людьми - удаляет чат для обоих участников
+   * Для чатов событий (EVENT) - запрещает удаление пользователем
    */
   async deleteChat(chatId: string, userId: string): Promise<void> {
+    // Получаем чат с информацией о типе
+    const chat = await this.chatRepository.findOne({
+      where: { id: chatId },
+      relations: ['participants'],
+    });
+
+    if (!chat) {
+      throw new NotFoundException('Чат не найден');
+    }
+
     // Проверяем доступ
     await this.findById(chatId, userId);
 
-    // Удаляем участника из чата
-    await this.chatParticipantRepository.delete({ chatId, userId });
+    // Если это чат события, запрещаем удаление пользователем
+    if (chat.type === ChatType.EVENT) {
+      throw new ForbiddenException('Чат события нельзя удалить. Он будет удален вместе с событием.');
+    }
 
-    // Проверяем, остались ли участники в чате
-    const remainingParticipants = await this.chatParticipantRepository.count({
-      where: { chatId },
-    });
+    // Для личных чатов (USER) удаляем всех участников и сам чат
+    if (chat.type === ChatType.USER) {
+      // Удаляем всех участников из чата
+      await this.chatParticipantRepository.delete({ chatId });
 
-    // Если участников не осталось, удаляем чат и все связанные данные
-    if (remainingParticipants === 0) {
       // Удаляем все сообщения
       await this.messageRepository.delete({ chatId });
-      // Удаляем всех участников (хотя их уже нет)
-      await this.chatParticipantRepository.delete({ chatId });
+
       // Удаляем сам чат
       await this.chatRepository.delete({ id: chatId });
     }

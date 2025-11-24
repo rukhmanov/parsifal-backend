@@ -15,7 +15,7 @@ import { EventModule } from './entities/event/event.module';
 import { FriendRequestModule } from './entities/friend-request/friend-request.module';
 import { EventParticipationRequestModule } from './entities/event-participation-request/event-participation-request.module';
 import { ChatModule } from './entities/chat/chat.module';
-import { PollingModule } from './entities/polling/polling.module';
+import { NotificationModule } from './entities/notification/notification.module';
 
 @Module({
   imports: [
@@ -73,7 +73,7 @@ import { PollingModule } from './entities/polling/polling.module';
     FriendRequestModule,
     EventParticipationRequestModule,
     ChatModule,
-    PollingModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

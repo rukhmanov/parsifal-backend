@@ -8,6 +8,7 @@ import { User } from '../user/user.entity';
 import { Friend } from '../friend/friend.entity';
 import { UserModule } from '../user/user.module';
 import { EventModule } from '../event/event.module';
+import { NotificationModule } from '../notification/notification.module';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
@@ -17,6 +18,7 @@ import { PassportModule } from '@nestjs/passport';
     TypeOrmModule.forFeature([EventParticipationRequest, Event, User, Friend]),
     UserModule,
     EventModule,
+    NotificationModule,
     PassportModule
   ],
   controllers: [EventParticipationRequestController],

@@ -12,6 +12,7 @@ import { UserModule } from '../user/user.module';
 import { User } from '../user/user.entity';
 import { EventModule } from '../event/event.module';
 import { Event } from '../event/event.entity';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { Event } from '../event/event.entity';
     PassportModule,
     UserModule,
     EventModule,
+    NotificationModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, JwtAuthGuard, JwtStrategy],

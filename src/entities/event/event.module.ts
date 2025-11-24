@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
 import { User } from '../user/user.entity';
+import { NotificationModule } from '../notification/notification.module';
 import { CommonModule } from '../../common/common.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { CommonModule } from '../../common/common.module';
     TypeOrmModule.forFeature([Event, User]),
     PassportModule,
     UserModule,
+    NotificationModule,
     CommonModule
   ],
   controllers: [EventController],

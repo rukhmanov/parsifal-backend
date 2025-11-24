@@ -1,9 +1,11 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FriendRequest } from './friend-request.entity';
 import { Friend } from '../friend/friend.entity';
 import { User } from '../user/user.entity';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/notification.entity';
 
 @Injectable()
 export class FriendRequestService {
@@ -14,6 +16,8 @@ export class FriendRequestService {
     private readonly friendRepository: Repository<Friend>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @Inject(forwardRef(() => NotificationService))
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -61,7 +65,21 @@ export class FriendRequestService {
       receiverId
     });
 
-    return await this.friendRequestRepository.save(friendRequest);
+    const savedRequest = await this.friendRequestRepository.save(friendRequest);
+
+    // Создаем уведомление для получателя
+    try {
+      await this.notificationService.createNotification({
+        userId: receiverId,
+        type: NotificationType.FRIEND_REQUEST_RECEIVED,
+        actorId: senderId,
+      });
+    } catch (error) {
+      console.error('Ошибка создания уведомления о заявке в друзья:', error);
+      // Не прерываем выполнение, если уведомление не создалось
+    }
+
+    return savedRequest;
   }
 
   /**
@@ -223,6 +241,17 @@ export class FriendRequestService {
 
     // Удаляем заявку
     await this.friendRequestRepository.remove(friendRequest);
+
+    // Создаем уведомление для отправителя заявки
+    try {
+      await this.notificationService.createNotification({
+        userId: senderId,
+        type: NotificationType.FRIEND_REQUEST_ACCEPTED,
+        actorId: receiverId,
+      });
+    } catch (error) {
+      console.error('Ошибка создания уведомления о принятии заявки в друзья:', error);
+    }
   }
 
   /**
@@ -237,7 +266,19 @@ export class FriendRequestService {
       throw new NotFoundException('Заявка не найдена');
     }
 
+    // Удаляем заявку
     await this.friendRequestRepository.remove(friendRequest);
+
+    // Создаем уведомление для отправителя заявки
+    try {
+      await this.notificationService.createNotification({
+        userId: senderId,
+        type: NotificationType.FRIEND_REQUEST_REJECTED,
+        actorId: receiverId,
+      });
+    } catch (error) {
+      console.error('Ошибка создания уведомления об отклонении заявки в друзья:', error);
+    }
   }
 
   /**
@@ -249,6 +290,17 @@ export class FriendRequestService {
       { userId, friendId },
       { userId: friendId, friendId: userId }
     ]);
+
+    // Создаем уведомление для удаленного друга
+    try {
+      await this.notificationService.createNotification({
+        userId: friendId,
+        type: NotificationType.FRIEND_REMOVED,
+        actorId: userId,
+      });
+    } catch (error) {
+      console.error('Ошибка создания уведомления об удалении из друзей:', error);
+    }
   }
 
   /**

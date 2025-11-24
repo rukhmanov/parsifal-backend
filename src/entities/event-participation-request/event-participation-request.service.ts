@@ -1,10 +1,12 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventParticipationRequest } from './event-participation-request.entity';
 import { Event } from '../event/event.entity';
 import { User } from '../user/user.entity';
 import { Friend } from '../friend/friend.entity';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/notification.entity';
 
 @Injectable()
 export class EventParticipationRequestService {
@@ -17,6 +19,8 @@ export class EventParticipationRequestService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Friend)
     private readonly friendRepository: Repository<Friend>,
+    @Inject(forwardRef(() => NotificationService))
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -71,7 +75,21 @@ export class EventParticipationRequestService {
       type: 'invitation'
     });
 
-    return await this.requestRepository.save(request);
+    const savedRequest = await this.requestRepository.save(request);
+
+    // Создаем уведомление для приглашенного пользователя
+    try {
+      await this.notificationService.createNotification({
+        userId: userId,
+        type: NotificationType.EVENT_REQUEST_RECEIVED,
+        actorId: creatorId,
+        eventId: eventId,
+      });
+    } catch (error) {
+      console.error('Ошибка создания уведомления о приглашении на событие:', error);
+    }
+
+    return savedRequest;
   }
 
   /**
@@ -130,7 +148,21 @@ export class EventParticipationRequestService {
       meetsRequirements: requirementsData?.meetsRequirements ?? false
     });
 
-    return await this.requestRepository.save(request);
+    const savedRequest = await this.requestRepository.save(request);
+
+    // Создаем уведомление для создателя события
+    try {
+      await this.notificationService.createNotification({
+        userId: event.creatorId,
+        type: NotificationType.EVENT_REQUEST_RECEIVED,
+        actorId: userId,
+        eventId: eventId,
+      });
+    } catch (error) {
+      console.error('Ошибка создания уведомления о заявке на событие:', error);
+    }
+
+    return savedRequest;
   }
 
   /**
@@ -177,6 +209,29 @@ export class EventParticipationRequestService {
 
     // Удаляем заявку из БД после принятия
     await this.requestRepository.remove(request);
+
+    // Создаем уведомление
+    try {
+      if (request.type === 'application') {
+        // Если это заявка, уведомляем пользователя, который подал заявку
+        await this.notificationService.createNotification({
+          userId: request.userId,
+          type: NotificationType.EVENT_REQUEST_ACCEPTED,
+          actorId: userId, // Создатель события принял заявку
+          eventId: request.eventId,
+        });
+      } else {
+        // Если это приглашение, уведомляем создателя события
+        await this.notificationService.createNotification({
+          userId: request.event.creatorId,
+          type: NotificationType.EVENT_REQUEST_ACCEPTED,
+          actorId: request.userId, // Пользователь принял приглашение
+          eventId: request.eventId,
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка создания уведомления о принятии заявки на событие:', error);
+    }
   }
 
   /**
@@ -207,6 +262,29 @@ export class EventParticipationRequestService {
 
     // Удаляем заявку из БД после отклонения
     await this.requestRepository.remove(request);
+
+    // Создаем уведомление
+    try {
+      if (request.type === 'application') {
+        // Если это заявка, уведомляем пользователя, который подал заявку
+        await this.notificationService.createNotification({
+          userId: request.userId,
+          type: NotificationType.EVENT_REQUEST_REJECTED,
+          actorId: userId, // Создатель события отклонил заявку
+          eventId: request.eventId,
+        });
+      } else {
+        // Если это приглашение, уведомляем создателя события
+        await this.notificationService.createNotification({
+          userId: request.event.creatorId,
+          type: NotificationType.EVENT_REQUEST_REJECTED,
+          actorId: request.userId, // Пользователь отклонил приглашение
+          eventId: request.eventId,
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка создания уведомления об отклонении заявки на событие:', error);
+    }
   }
 
   /**

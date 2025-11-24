@@ -6,6 +6,7 @@ import { FriendRequestController } from './friend-request.controller';
 import { User } from '../user/user.entity';
 import { Friend } from '../friend/friend.entity';
 import { UserModule } from '../user/user.module';
+import { NotificationModule } from '../notification/notification.module';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
@@ -14,6 +15,7 @@ import { PassportModule } from '@nestjs/passport';
   imports: [
     TypeOrmModule.forFeature([FriendRequest, Friend, User]),
     UserModule,
+    NotificationModule,
     PassportModule
   ],
   controllers: [FriendRequestController],
