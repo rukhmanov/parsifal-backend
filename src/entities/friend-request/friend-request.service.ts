@@ -23,7 +23,7 @@ export class FriendRequestService {
   /**
    * Создать заявку в друзья
    */
-  async createFriendRequest(senderId: string, receiverId: string): Promise<FriendRequest> {
+  async createFriendRequest(senderId: string, receiverId: string, comment?: string): Promise<FriendRequest> {
     // Проверяем, что отправитель и получатель не один и тот же пользователь
     if (senderId === receiverId) {
       throw new BadRequestException('Нельзя отправить заявку самому себе');
@@ -62,7 +62,8 @@ export class FriendRequestService {
     // Создаем новую заявку
     const friendRequest = this.friendRequestRepository.create({
       senderId,
-      receiverId
+      receiverId,
+      comment: comment || undefined
     });
 
     const savedRequest = await this.friendRequestRepository.save(friendRequest);
@@ -172,6 +173,7 @@ export class FriendRequestService {
         displayName: request.receiver.displayName,
         avatar: request.receiver.avatar,
       },
+      comment: request.comment,
       createdAt: request.createdAt
     }));
   }
@@ -197,6 +199,7 @@ export class FriendRequestService {
         displayName: request.sender.displayName,
         avatar: request.sender.avatar,
       },
+      comment: request.comment,
       createdAt: request.createdAt
     }));
   }

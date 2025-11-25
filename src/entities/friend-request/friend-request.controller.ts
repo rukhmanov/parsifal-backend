@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Get, Param, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Param, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { FriendRequestService } from './friend-request.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -20,10 +20,11 @@ export class FriendRequestController {
   @HttpCode(HttpStatus.CREATED)
   async sendFriendRequest(
     @Param('receiverId') receiverId: string,
+    @Body() body: { comment?: string },
     @Request() req: any
   ) {
     const senderId = req.user.id;
-    return await this.friendRequestService.createFriendRequest(senderId, receiverId);
+    return await this.friendRequestService.createFriendRequest(senderId, receiverId, body.comment);
   }
 
   @Delete(':receiverId')

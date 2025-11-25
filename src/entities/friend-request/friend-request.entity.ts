@@ -21,6 +21,9 @@ export class FriendRequest {
   @JoinColumn({ name: 'receiverId' })
   receiver!: User;
 
+  @Column({ type: 'text', nullable: true })
+  comment?: string; // Комментарий к заявке
+
   @CreateDateColumn()
   createdAt!: Date;
 }

@@ -26,7 +26,7 @@ export class EventParticipationRequestService {
   /**
    * Отправить приглашение на участие в событии (от создателя события)
    */
-  async sendInvitation(eventId: string, userId: string, creatorId: string): Promise<EventParticipationRequest> {
+  async sendInvitation(eventId: string, userId: string, creatorId: string, comment?: string): Promise<EventParticipationRequest> {
     // Проверяем, что событие существует
     const event = await this.eventRepository.findOne({ where: { id: eventId } });
     if (!event) {
@@ -72,7 +72,8 @@ export class EventParticipationRequestService {
       eventId,
       userId,
       status: 'pending',
-      type: 'invitation'
+      type: 'invitation',
+      comment: comment || undefined
     });
 
     const savedRequest = await this.requestRepository.save(request);
@@ -104,6 +105,7 @@ export class EventParticipationRequestService {
       itemsCanBring?: string[];
       canBringMoney?: boolean;
       meetsRequirements?: boolean;
+      comment?: string;
     }
   ): Promise<EventParticipationRequest> {
     // Проверяем, что событие существует
@@ -145,7 +147,8 @@ export class EventParticipationRequestService {
       genderMatches: requirementsData?.genderMatches,
       itemsCanBring: requirementsData?.itemsCanBring,
       canBringMoney: requirementsData?.canBringMoney,
-      meetsRequirements: requirementsData?.meetsRequirements ?? false
+      meetsRequirements: requirementsData?.meetsRequirements ?? false,
+      comment: requirementsData?.comment || undefined
     });
 
     const savedRequest = await this.requestRepository.save(request);
@@ -386,6 +389,7 @@ export class EventParticipationRequestService {
       itemsCanBring: request.itemsCanBring,
       canBringMoney: request.canBringMoney,
       meetsRequirements: request.meetsRequirements,
+      comment: request.comment,
       createdAt: request.createdAt
     }));
   }
@@ -420,6 +424,7 @@ export class EventParticipationRequestService {
         displayName: request.user.displayName,
         avatar: request.user.avatar,
       },
+      comment: request.comment,
       createdAt: request.createdAt
     }));
   }
@@ -451,6 +456,7 @@ export class EventParticipationRequestService {
           avatar: request.event.creator.avatar,
         }
       },
+      comment: request.comment,
       createdAt: request.createdAt
     }));
   }
@@ -491,6 +497,7 @@ export class EventParticipationRequestService {
           avatar: request.event.creator.avatar,
         }
       },
+      comment: request.comment,
       createdAt: request.createdAt
     }));
   }

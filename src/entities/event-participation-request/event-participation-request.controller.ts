@@ -19,10 +19,11 @@ export class EventParticipationRequestController {
   async sendInvitation(
     @Param('eventId') eventId: string,
     @Param('userId') userId: string,
+    @Body() body: { comment?: string },
     @Request() req: any
   ) {
     const creatorId = req.user.id;
-    return await this.requestService.sendInvitation(eventId, userId, creatorId);
+    return await this.requestService.sendInvitation(eventId, userId, creatorId, body.comment);
   }
 
   @Post('apply/:eventId')
@@ -37,6 +38,7 @@ export class EventParticipationRequestController {
       itemsCanBring?: string[];
       canBringMoney?: boolean;
       meetsRequirements?: boolean;
+      comment?: string;
     },
     @Request() req: any
   ) {

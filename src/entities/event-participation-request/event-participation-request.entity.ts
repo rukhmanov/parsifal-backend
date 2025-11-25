@@ -35,6 +35,9 @@ export class EventParticipationRequest {
   @Column({ type: 'boolean', default: false })
   meetsRequirements!: boolean; // Соответствует ли всем требованиям
 
+  @Column({ type: 'text', nullable: true })
+  comment?: string; // Комментарий к заявке/приглашению
+
   @ManyToOne(() => Event, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'eventId' })
   event!: Event;
