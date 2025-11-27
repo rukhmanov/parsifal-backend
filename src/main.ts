@@ -6,7 +6,12 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    cors: {
+      origin: true,
+      credentials: true,
+    },
+  });
 
   // Security middleware
   app.use(helmet());
@@ -82,12 +87,14 @@ async function bootstrap(): Promise<void> {
     },
   });
 
-  // Устанавливаем глобальный префикс для API, исключая корневой эндпоинт и docs
+  // Устанавливаем глобальный префикс для API, исключая корневой эндпоинт, docs и WebSocket
   app.setGlobalPrefix('api', {
     exclude: [
       { path: '', method: RequestMethod.GET },
       { path: 'docs', method: RequestMethod.ALL },
       { path: 'docs/(.*)', method: RequestMethod.ALL },
+      { path: 'ws', method: RequestMethod.ALL },
+      { path: 'ws/(.*)', method: RequestMethod.ALL },
     ],
   });
 

@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { Notification, NotificationType } from './notification.entity';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 export interface CreateNotificationDto {
   userId: string;
@@ -17,6 +18,8 @@ export class NotificationService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
+    @Inject(forwardRef(() => AppWebSocketGateway))
+    private readonly webSocketGateway?: AppWebSocketGateway,
   ) {}
 
   /**
@@ -33,7 +36,44 @@ export class NotificationService {
       isRead: false,
     });
 
-    return await this.notificationRepository.save(notification);
+    const savedNotification = await this.notificationRepository.save(notification);
+
+    // Загружаем полные данные уведомления с relations для отправки через WebSocket
+    const fullNotification = await this.notificationRepository.findOne({
+      where: { id: savedNotification.id },
+      relations: ['actor', 'event'],
+    });
+
+    if (fullNotification) {
+      const notificationData = {
+        id: fullNotification.id,
+        type: fullNotification.type,
+        actor: fullNotification.actor ? {
+          id: fullNotification.actor.id,
+          email: fullNotification.actor.email,
+          firstName: fullNotification.actor.firstName,
+          lastName: fullNotification.actor.lastName,
+          displayName: fullNotification.actor.displayName,
+          avatar: fullNotification.actor.avatar,
+        } : null,
+        event: fullNotification.event ? {
+          id: fullNotification.event.id,
+          title: fullNotification.event.title,
+        } : null,
+        eventId: fullNotification.eventId,
+        chatId: fullNotification.chatId,
+        message: fullNotification.message,
+        isRead: fullNotification.isRead,
+        createdAt: fullNotification.createdAt,
+      };
+
+      // Отправляем уведомление через WebSocket
+      if (this.webSocketGateway) {
+        this.webSocketGateway.sendNotificationToUser(dto.userId, notificationData);
+      }
+    }
+
+    return savedNotification;
   }
 
   /**

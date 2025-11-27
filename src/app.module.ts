@@ -16,6 +16,7 @@ import { FriendRequestModule } from './entities/friend-request/friend-request.mo
 import { EventParticipationRequestModule } from './entities/event-participation-request/event-participation-request.module';
 import { ChatModule } from './entities/chat/chat.module';
 import { NotificationModule } from './entities/notification/notification.module';
+import { WebSocketModule } from './entities/websocket/websocket.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { NotificationModule } from './entities/notification/notification.module'
     EventParticipationRequestModule,
     ChatModule,
     NotificationModule,
+    WebSocketModule,
   ],
   controllers: [AppController],
   providers: [AppService],
