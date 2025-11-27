@@ -6,6 +6,7 @@ import { Friend } from '../friend/friend.entity';
 import { User } from '../user/user.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class FriendRequestService {
@@ -18,6 +19,8 @@ export class FriendRequestService {
     private readonly userRepository: Repository<User>,
     @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => AppWebSocketGateway))
+    private readonly webSocketGateway?: AppWebSocketGateway,
   ) {}
 
   /**
@@ -68,6 +71,12 @@ export class FriendRequestService {
 
     const savedRequest = await this.friendRequestRepository.save(friendRequest);
 
+    // Загружаем заявку с relations для отправки через WebSocket
+    const requestWithRelations = await this.friendRequestRepository.findOne({
+      where: { id: savedRequest.id },
+      relations: ['sender', 'receiver'],
+    });
+
     // Создаем уведомление для получателя
     try {
       await this.notificationService.createNotification({
@@ -78,6 +87,27 @@ export class FriendRequestService {
     } catch (error) {
       console.error('Ошибка создания уведомления о заявке в друзья:', error);
       // Не прерываем выполнение, если уведомление не создалось
+    }
+
+    // Отправляем через WebSocket получателю заявки
+    if (this.webSocketGateway && requestWithRelations) {
+      this.webSocketGateway.sendFriendUpdateToUser(receiverId, {
+        action: 'request_received',
+        request: {
+          id: requestWithRelations.id,
+          senderId: requestWithRelations.senderId,
+          sender: {
+            id: requestWithRelations.sender.id,
+            email: requestWithRelations.sender.email,
+            firstName: requestWithRelations.sender.firstName,
+            lastName: requestWithRelations.sender.lastName,
+            displayName: requestWithRelations.sender.displayName,
+            avatar: requestWithRelations.sender.avatar,
+          },
+          comment: requestWithRelations.comment,
+          createdAt: requestWithRelations.createdAt,
+        },
+      });
     }
 
     return savedRequest;
@@ -255,6 +285,21 @@ export class FriendRequestService {
     } catch (error) {
       console.error('Ошибка создания уведомления о принятии заявки в друзья:', error);
     }
+
+    // Отправляем через WebSocket обоим пользователям
+    if (this.webSocketGateway) {
+      // Отправителю заявки - заявка принята
+      this.webSocketGateway.sendFriendUpdateToUser(senderId, {
+        action: 'request_accepted',
+        userId: receiverId,
+      });
+      
+      // Получателю заявки - теперь друзья
+      this.webSocketGateway.sendFriendUpdateToUser(receiverId, {
+        action: 'friend_added',
+        userId: senderId,
+      });
+    }
   }
 
   /**
@@ -282,6 +327,14 @@ export class FriendRequestService {
     } catch (error) {
       console.error('Ошибка создания уведомления об отклонении заявки в друзья:', error);
     }
+
+    // Отправляем через WebSocket отправителю заявки
+    if (this.webSocketGateway) {
+      this.webSocketGateway.sendFriendUpdateToUser(senderId, {
+        action: 'request_rejected',
+        userId: receiverId,
+      });
+    }
   }
 
   /**
@@ -303,6 +356,14 @@ export class FriendRequestService {
       });
     } catch (error) {
       console.error('Ошибка создания уведомления об удалении из друзей:', error);
+    }
+
+    // Отправляем через WebSocket удаленному другу
+    if (this.webSocketGateway) {
+      this.webSocketGateway.sendFriendUpdateToUser(friendId, {
+        action: 'friend_removed',
+        userId: userId,
+      });
     }
   }
 

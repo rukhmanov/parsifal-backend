@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { Chat } from './chat.entity';
@@ -13,6 +13,7 @@ import { User } from '../user/user.entity';
 import { EventModule } from '../event/event.module';
 import { Event } from '../event/event.entity';
 import { NotificationModule } from '../notification/notification.module';
+import { WebSocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { NotificationModule } from '../notification/notification.module';
     UserModule,
     EventModule,
     NotificationModule,
+    forwardRef(() => WebSocketModule),
   ],
   controllers: [ChatController],
   providers: [ChatService, JwtAuthGuard, JwtStrategy],

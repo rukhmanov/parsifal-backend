@@ -7,6 +7,7 @@ import { User } from '../user/user.entity';
 import { Friend } from '../friend/friend.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class EventParticipationRequestService {
@@ -21,6 +22,8 @@ export class EventParticipationRequestService {
     private readonly friendRepository: Repository<Friend>,
     @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => AppWebSocketGateway))
+    private readonly webSocketGateway?: AppWebSocketGateway,
   ) {}
 
   /**
@@ -78,6 +81,12 @@ export class EventParticipationRequestService {
 
     const savedRequest = await this.requestRepository.save(request);
 
+    // Загружаем заявку с relations для отправки через WebSocket
+    const requestWithRelations = await this.requestRepository.findOne({
+      where: { id: savedRequest.id },
+      relations: ['user', 'event'],
+    });
+
     // Создаем уведомление для приглашенного пользователя
     try {
       await this.notificationService.createNotification({
@@ -88,6 +97,20 @@ export class EventParticipationRequestService {
       });
     } catch (error) {
       console.error('Ошибка создания уведомления о приглашении на событие:', error);
+    }
+
+    // Отправляем через WebSocket приглашенному пользователю
+    if (this.webSocketGateway && requestWithRelations) {
+      this.webSocketGateway.sendEventUpdateToUser(userId, {
+        action: 'invitation_received',
+        eventId: eventId,
+        request: {
+          id: requestWithRelations.id,
+          eventId: requestWithRelations.eventId,
+          comment: requestWithRelations.comment,
+          createdAt: requestWithRelations.createdAt,
+        },
+      });
     }
 
     return savedRequest;
@@ -153,6 +176,12 @@ export class EventParticipationRequestService {
 
     const savedRequest = await this.requestRepository.save(request);
 
+    // Загружаем заявку с relations для отправки через WebSocket
+    const requestWithRelations = await this.requestRepository.findOne({
+      where: { id: savedRequest.id },
+      relations: ['user', 'event'],
+    });
+
     // Создаем уведомление для создателя события
     try {
       await this.notificationService.createNotification({
@@ -163,6 +192,28 @@ export class EventParticipationRequestService {
       });
     } catch (error) {
       console.error('Ошибка создания уведомления о заявке на событие:', error);
+    }
+
+    // Отправляем через WebSocket создателю события
+    if (this.webSocketGateway && requestWithRelations) {
+      this.webSocketGateway.sendEventUpdateToUser(event.creatorId, {
+        action: 'request_received',
+        eventId: eventId,
+        request: {
+          id: requestWithRelations.id,
+          userId: requestWithRelations.userId,
+          user: {
+            id: requestWithRelations.user.id,
+            email: requestWithRelations.user.email,
+            firstName: requestWithRelations.user.firstName,
+            lastName: requestWithRelations.user.lastName,
+            displayName: requestWithRelations.user.displayName,
+            avatar: requestWithRelations.user.avatar,
+          },
+          comment: requestWithRelations.comment,
+          createdAt: requestWithRelations.createdAt,
+        },
+      });
     }
 
     return savedRequest;
@@ -235,6 +286,24 @@ export class EventParticipationRequestService {
     } catch (error) {
       console.error('Ошибка создания уведомления о принятии заявки на событие:', error);
     }
+
+    // Отправляем через WebSocket
+    if (this.webSocketGateway) {
+      if (request.type === 'application') {
+        // Если это заявка, отправляем пользователю, который подал заявку
+        this.webSocketGateway.sendEventUpdateToUser(request.userId, {
+          action: 'request_accepted',
+          eventId: request.eventId,
+        });
+      } else {
+        // Если это приглашение, отправляем создателю события
+        this.webSocketGateway.sendEventUpdateToUser(request.event.creatorId, {
+          action: 'invitation_accepted',
+          eventId: request.eventId,
+          userId: request.userId,
+        });
+      }
+    }
   }
 
   /**
@@ -287,6 +356,24 @@ export class EventParticipationRequestService {
       }
     } catch (error) {
       console.error('Ошибка создания уведомления об отклонении заявки на событие:', error);
+    }
+
+    // Отправляем через WebSocket
+    if (this.webSocketGateway) {
+      if (request.type === 'application') {
+        // Если это заявка, отправляем пользователю, который подал заявку
+        this.webSocketGateway.sendEventUpdateToUser(request.userId, {
+          action: 'request_rejected',
+          eventId: request.eventId,
+        });
+      } else {
+        // Если это приглашение, отправляем создателю события
+        this.webSocketGateway.sendEventUpdateToUser(request.event.creatorId, {
+          action: 'invitation_rejected',
+          eventId: request.eventId,
+          userId: request.userId,
+        });
+      }
     }
   }
 

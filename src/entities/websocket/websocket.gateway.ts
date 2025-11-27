@@ -134,6 +134,17 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
   }
 
   /**
+   * Отправить сообщение чата конкретному пользователю
+   */
+  sendChatMessageToUser(userId: string, data: any) {
+    const client = this.connectedUsers.get(userId);
+    if (client) {
+      client.emit('chat_message', data);
+      this.logger.log(`Chat message sent to user: ${userId}`);
+    }
+  }
+
+  /**
    * Проверить, подключен ли пользователь
    */
   isUserConnected(userId: string): boolean {

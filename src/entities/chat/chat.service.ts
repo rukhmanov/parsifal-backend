@@ -11,6 +11,7 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
+import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class ChatService {
@@ -27,6 +28,8 @@ export class ChatService {
     private readonly eventRepository: Repository<Event>,
     @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => AppWebSocketGateway))
+    private readonly webSocketGateway?: AppWebSocketGateway,
   ) {}
 
   /**
@@ -313,6 +316,22 @@ export class ChatService {
     } catch (error) {
       console.error('Ошибка создания уведомлений о сообщении:', error);
       // Не прерываем выполнение, если уведомления не создались
+    }
+
+    // Отправляем сообщение через WebSocket всем участникам чата, кроме отправителя
+    if (this.webSocketGateway && messageWithSender) {
+      const messageData = this.sanitizeDeletedMessage(messageWithSender);
+      participants
+        .filter(p => p.userId !== senderId)
+        .forEach(participant => {
+          if (this.webSocketGateway) {
+            this.webSocketGateway.sendChatMessageToUser(participant.userId, {
+              action: 'message_received',
+              chatId: chatId,
+              message: messageData,
+            });
+          }
+        });
     }
 
     const messageToReturn = messageWithSender || savedMessage;
