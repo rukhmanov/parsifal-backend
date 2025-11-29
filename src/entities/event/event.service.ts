@@ -90,6 +90,12 @@ export class EventService {
       throw new BadRequestException('Комментарий к адресу содержит нецензурные слова');
     }
 
+    // Проверяем количество активных событий пользователя
+    const userEvents = await this.findUserEvents(creatorId, false); // false = только будущие события
+    if (userEvents.length >= 3) {
+      throw new BadRequestException('Вы не можете создать больше трех событий одновременно. Удалите одно из существующих событий, чтобы создать новое.');
+    }
+
     // Устанавливаем значения по умолчанию для entrance, floor, apartment
     const event = this.eventRepository.create({
       ...eventData,
