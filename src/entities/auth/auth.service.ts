@@ -322,6 +322,37 @@ export class AuthService {
     return this.jwtService.sign(payload);
   }
 
+  async generateRefreshToken(user: User): Promise<string> {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      authProvider: user.authProvider,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      displayName: user.displayName,
+      avatar: user.avatar,
+    };
+
+    // Refresh token имеет более длительное время жизни (7 дней)
+    return this.jwtService.sign(payload, { expiresIn: '7d' });
+  }
+
+  async validateRefreshToken(refreshToken: string): Promise<User> {
+    try {
+      const payload = await this.verifyJwtToken(refreshToken);
+      
+      // Получаем пользователя из БД с загрузкой связанной роли
+      const user = await this.userService.findById(payload.sub);
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+      
+      return user;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
   async verifyJwtToken(token: string): Promise<JwtPayload> {
     try {
       return this.jwtService.verify(token);

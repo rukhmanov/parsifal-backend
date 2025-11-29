@@ -211,6 +211,36 @@ export class AuthController {
     }
   }
 
+  @Post('google/refresh')
+  @ApiOperation({ summary: 'Обновить Google access token через refresh token' })
+  @ApiResponse({ status: 200, description: 'Токен успешно обновлен' })
+  @ApiResponse({ status: 401, description: 'Недействительный refresh token' })
+  async refreshGoogleToken(@Body() body: { refreshToken: string }): Promise<any> {
+    try {
+      const { refreshToken } = body;
+      
+      if (!refreshToken) {
+        throw new Error('Refresh token is missing');
+      }
+
+      // Обновляем токен через Google
+      const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      return tokenResponse.data;
+    } catch (error: any) {
+      throw new Error(`Failed to refresh Google token: ${error.response?.data?.error_description || error.message}`);
+    }
+  }
+
   @Post('google/userinfo')
   async getGoogleUserInfo(@Body() body: { accessToken: string }): Promise<any> {
     try {
@@ -346,6 +376,36 @@ export class AuthController {
         status: 'GET /api/auth/yandex/status'
       }
     };
+  }
+
+  @Post('yandex/refresh')
+  @ApiOperation({ summary: 'Обновить Yandex access token через refresh token' })
+  @ApiResponse({ status: 200, description: 'Токен успешно обновлен' })
+  @ApiResponse({ status: 401, description: 'Недействительный refresh token' })
+  async refreshYandexToken(@Body() body: { refreshToken: string }): Promise<any> {
+    try {
+      const { refreshToken } = body;
+      
+      if (!refreshToken) {
+        throw new Error('Refresh token is missing');
+      }
+
+      // Обновляем токен через Yandex
+      const tokenResponse = await axios.post('https://oauth.yandex.ru/token', {
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: process.env.YANDEX_CLIENT_ID,
+        client_secret: process.env.YANDEX_CLIENT_SECRET,
+      }, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      return tokenResponse.data;
+    } catch (error: any) {
+      throw new Error(`Failed to refresh Yandex token: ${error.response?.data?.error_description || error.message}`);
+    }
   }
 
   @Post('yandex/userinfo')
@@ -500,9 +560,10 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'Пользователь успешно зарегистрирован' })
   @ApiResponse({ status: 400, description: 'Ошибка валидации данных' })
   @ApiBody({ type: RegisterDto })
-  async register(@Body(ValidationPipe) registerDto: RegisterDto): Promise<{ user: any; token: string }> {
+  async register(@Body(ValidationPipe) registerDto: RegisterDto): Promise<{ user: any; token: string; refreshToken: string }> {
     const user = await this.authService.register(registerDto);
     const token = await this.authService.generateJwtToken(user);
+    const refreshToken = await this.authService.generateRefreshToken(user);
     
     // Получаем пользователя с ролями и пермишенами
     const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
@@ -530,6 +591,7 @@ export class AuthController {
         permissions: formattedResponse.permissions
       },
       token,
+      refreshToken,
     };
   }
 
@@ -548,9 +610,10 @@ export class AuthController {
     }
   })
   @UseGuards(AuthGuard('local'))
-  async login(@Req() req: Request): Promise<{ user: any; token: string }> {
+  async login(@Req() req: Request): Promise<{ user: any; token: string; refreshToken: string }> {
     const user = req.user as any;
     const token = await this.authService.generateJwtToken(user);
+    const refreshToken = await this.authService.generateRefreshToken(user);
     
     // Получаем пользователя с ролями и пермишенами
     const userWithPermissions = await this.authService.getUserWithPermissions(user.id);
@@ -578,7 +641,45 @@ export class AuthController {
         permissions: formattedResponse.permissions
       },
       token,
+      refreshToken,
     };
+  }
+
+  @Post('refresh')
+  @ApiOperation({ summary: 'Обновить JWT токен через refresh token' })
+  @ApiResponse({ status: 200, description: 'Токен успешно обновлен' })
+  @ApiResponse({ status: 401, description: 'Недействительный refresh token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        refreshToken: { type: 'string', example: 'refresh_token_here' }
+      },
+      required: ['refreshToken']
+    }
+  })
+  async refreshJwtToken(@Body() body: { refreshToken: string }): Promise<{ token: string; refreshToken: string }> {
+    try {
+      const { refreshToken } = body;
+      
+      if (!refreshToken) {
+        throw new Error('Refresh token is missing');
+      }
+
+      // Валидируем refresh token и получаем пользователя
+      const user = await this.authService.validateRefreshToken(refreshToken);
+      
+      // Генерируем новые токены
+      const newToken = await this.authService.generateJwtToken(user);
+      const newRefreshToken = await this.authService.generateRefreshToken(user);
+      
+      return {
+        token: newToken,
+        refreshToken: newRefreshToken,
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to refresh JWT token: ${error.message}`);
+    }
   }
 
   // Эндпоинт для восстановления пароля
