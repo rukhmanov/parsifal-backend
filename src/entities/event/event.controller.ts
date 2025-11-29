@@ -54,6 +54,23 @@ export class EventController {
     return this.eventService.findUserEvents(user.id, includePastBool);
   }
 
+  @Get('participating-events')
+  @ApiOperation({ summary: 'Получить события, где пользователь является участником (не организатором)' })
+  @ApiResponse({ status: 200, description: 'Список событий, где пользователь участник, получен успешно' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  async getParticipatingEvents(
+    @Request() req: any,
+    @Query('includePast') includePast?: string
+  ): Promise<Event[]> {
+    const user = req.user;
+    if (!user) {
+      throw new ForbiddenException('Пользователь не авторизован');
+    }
+    const includePastBool = includePast === 'true';
+    return this.eventService.findEventsWhereUserIsParticipant(user.id, includePastBool);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Получить событие по ID' })
   @ApiResponse({ status: 200, description: 'Событие получено успешно' })

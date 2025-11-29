@@ -160,6 +160,32 @@ export class EventService {
     return await queryBuilder.getMany();
   }
 
+  /**
+   * Получить события, где пользователь является участником (не организатором)
+   * @param userId ID пользователя
+   * @param includePast Включать ли прошедшие события
+   */
+  async findEventsWhereUserIsParticipant(userId: string, includePast: boolean = false): Promise<Event[]> {
+    const queryBuilder = this.eventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.creator', 'creator')
+      .leftJoinAndSelect('event.participants', 'participants')
+      .innerJoin('event_participants', 'ep', 'ep.eventId = event.id AND ep.userId = :userId', { userId })
+      .where('event.creatorId != :userId', { userId }); // Исключаем события, где пользователь организатор
+
+    if (includePast) {
+      // Для завершенных событий: только прошедшие
+      queryBuilder.andWhere('event.dateTime < :now', { now: new Date() });
+      queryBuilder.orderBy('event.dateTime', 'DESC'); // Сначала самые недавние
+    } else {
+      // Для текущих событий: только будущие
+      queryBuilder.andWhere('event.dateTime >= :now', { now: new Date() });
+      queryBuilder.orderBy('event.dateTime', 'ASC'); // Сначала ближайшие
+    }
+
+    return await queryBuilder.getMany();
+  }
+
   async findById(id: string): Promise<Event | null> {
     return await this.eventRepository.findOne({
       where: { id },
