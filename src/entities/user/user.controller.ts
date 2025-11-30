@@ -31,6 +31,8 @@ export interface UpdateUserDto {
   birthDate?: Date | string;
   roleId?: string;
   isActive?: boolean;
+  termsAccepted?: boolean;
+  privacyAccepted?: boolean;
 }
 
 @ApiTags('users')
@@ -506,6 +508,37 @@ export class UserController {
   ): Promise<User> {
     const normalizedId = this.normalizeUserId(id);
     return this.userService.unblockUser(normalizedId);
+  }
+
+  @Post('accept-legal-documents')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Принять юридические документы (для OAuth пользователей)' })
+  @ApiResponse({ status: 200, description: 'Документы приняты' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        acceptTerms: { type: 'boolean' },
+        acceptPrivacy: { type: 'boolean' }
+      },
+      required: ['acceptTerms', 'acceptPrivacy']
+    }
+  })
+  async acceptLegalDocuments(
+    @Body() body: { acceptTerms: boolean; acceptPrivacy: boolean },
+    @Request() req: any
+  ): Promise<User> {
+    const userId = req.user.id;
+    const normalizedId = this.normalizeUserId(String(userId));
+    
+    const now = new Date();
+    return this.userService.update(normalizedId, {
+      termsAccepted: body.acceptTerms,
+      termsAcceptedAt: body.acceptTerms ? now : undefined,
+      privacyAccepted: body.acceptPrivacy,
+      privacyAcceptedAt: body.acceptPrivacy ? now : undefined,
+    });
   }
 
 }
