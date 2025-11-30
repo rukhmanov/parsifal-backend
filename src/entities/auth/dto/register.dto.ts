@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, IsOptional, IsDateString, IsIn } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsOptional, IsDateString, IsIn, IsBoolean } from 'class-validator';
 import { IsStrongPassword } from '../../../common/validators/password.validator';
 
 export class RegisterDto {
@@ -26,4 +26,12 @@ export class RegisterDto {
   @IsOptional()
   @IsDateString({}, { message: 'Некорректная дата рождения' })
   birthDate?: string;
+
+  @IsBoolean({ message: 'Необходимо принять Условия использования' })
+  @IsNotEmpty({ message: 'Необходимо принять Условия использования' })
+  acceptTerms!: boolean;
+
+  @IsBoolean({ message: 'Необходимо принять Политику конфиденциальности' })
+  @IsNotEmpty({ message: 'Необходимо принять Политику конфиденциальности' })
+  acceptPrivacy!: boolean;
 }

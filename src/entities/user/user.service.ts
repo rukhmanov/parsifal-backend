@@ -224,4 +224,54 @@ export class UserService {
       }))
     };
   }
+
+  async blockUser(userId: string, reason: string, blockedUntil?: Date): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('Пользователь не найден');
+    }
+
+    user.isBlocked = true;
+    user.blockReason = reason;
+    user.blockedUntil = blockedUntil || null; // null = permanent block
+
+    return this.userRepository.save(user);
+  }
+
+  async unblockUser(userId: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('Пользователь не найден');
+    }
+
+    user.isBlocked = false;
+    user.blockReason = null;
+    user.blockedUntil = null;
+
+    return this.userRepository.save(user);
+  }
+
+  async checkIfBlocked(userId: string): Promise<boolean> {
+    const user = await this.findById(userId);
+    if (!user) {
+      return false;
+    }
+
+    // Если пользователь заблокирован
+    if (user.isBlocked) {
+      // Если есть временная блокировка, проверяем срок
+      if (user.blockedUntil) {
+        // Если срок блокировки истек, разблокируем
+        if (new Date() > user.blockedUntil) {
+          await this.unblockUser(userId);
+          return false;
+        }
+        return true;
+      }
+      // Постоянная блокировка
+      return true;
+    }
+
+    return false;
+  }
 }

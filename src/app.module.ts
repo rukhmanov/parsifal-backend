@@ -17,6 +17,7 @@ import { EventParticipationRequestModule } from './entities/event-participation-
 import { ChatModule } from './entities/chat/chat.module';
 import { NotificationModule } from './entities/notification/notification.module';
 import { WebSocketModule } from './entities/websocket/websocket.module';
+import { ReportModule } from './entities/report/report.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { WebSocketModule } from './entities/websocket/websocket.module';
     ChatModule,
     NotificationModule,
     WebSocketModule,
+    ReportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

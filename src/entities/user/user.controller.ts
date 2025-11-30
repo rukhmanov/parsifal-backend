@@ -460,4 +460,52 @@ export class UserController {
     return this.userService.findAllWithFilters(request);
   }
 
+  @Post(':id/block')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['users.block'])
+  @ApiOperation({ summary: 'Заблокировать пользователя' })
+  @ApiResponse({ status: 200, description: 'Пользователь заблокирован' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Пользователь не найден' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', example: 'Нарушение правил сообщества' },
+        blockedUntil: { type: 'string', format: 'date-time', nullable: true, example: null }
+      },
+      required: ['reason']
+    }
+  })
+  async blockUser(
+    @Param('id') id: string,
+    @Body() body: { reason: string; blockedUntil?: string },
+    @Request() req: any
+  ): Promise<User> {
+    const normalizedId = this.normalizeUserId(id);
+    const normalizedCurrentUserId = this.normalizeUserId(String(req.user.id));
+
+    // Нельзя заблокировать самого себя
+    if (normalizedId === normalizedCurrentUserId) {
+      throw new ForbiddenException('Нельзя заблокировать самого себя');
+    }
+
+    const blockedUntil = body.blockedUntil ? new Date(body.blockedUntil) : undefined;
+    return this.userService.blockUser(normalizedId, body.reason, blockedUntil);
+  }
+
+  @Post(':id/unblock')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['users.block'])
+  @ApiOperation({ summary: 'Разблокировать пользователя' })
+  @ApiResponse({ status: 200, description: 'Пользователь разблокирован' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Пользователь не найден' })
+  async unblockUser(
+    @Param('id') id: string
+  ): Promise<User> {
+    const normalizedId = this.normalizeUserId(id);
+    return this.userService.unblockUser(normalizedId);
+  }
+
 }

@@ -49,6 +49,27 @@ export class User {
   @Column({ default: true })
   isActive!: boolean;
 
+  @Column({ default: false })
+  isBlocked!: boolean; // Заблокирован ли пользователь
+
+  @Column({ type: 'text', nullable: true })
+  blockReason?: string; // Причина блокировки
+
+  @Column({ type: 'timestamp', nullable: true })
+  blockedUntil?: Date; // Блокировка до определенной даты (null = permanent)
+
+  @Column({ default: false })
+  termsAccepted!: boolean; // Приняты ли условия использования
+
+  @Column({ type: 'timestamp', nullable: true })
+  termsAcceptedAt?: Date; // Дата принятия условий
+
+  @Column({ default: false })
+  privacyAccepted!: boolean; // Принята ли политика конфиденциальности
+
+  @Column({ type: 'timestamp', nullable: true })
+  privacyAcceptedAt?: Date; // Дата принятия политики
+
   @Column({ nullable: true })
   roleId?: string;
 

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { YandexStrategy, YandexUserInfo } from './strategies/yandex.strategy';
 import * as bcrypt from 'bcrypt';
@@ -116,6 +116,12 @@ export class AuthService {
     );
     
     if (user) {
+      // Проверяем, не заблокирован ли пользователь
+      const isBlocked = await this.userService.checkIfBlocked(user.id);
+      if (isBlocked) {
+        throw new UnauthorizedException('Ваш аккаунт заблокирован. Обратитесь к администратору.');
+      }
+
       // Обновляем данные существующего пользователя только если явно указано
       if (shouldUpdate) {
         const updateData: any = {
@@ -370,16 +376,33 @@ export class AuthService {
       if (!user) {
         throw new UnauthorizedException('User not found');
       }
+
+      // Проверяем, не заблокирован ли пользователь
+      const isBlocked = await this.userService.checkIfBlocked(user.id);
+      if (isBlocked) {
+        throw new UnauthorizedException('Ваш аккаунт заблокирован. Обратитесь к администратору.');
+      }
       
       return user;
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid JWT token');
     }
   }
 
   // Методы для локальной аутентификации
   async register(registerDto: RegisterDto): Promise<User> {
-    const { email, password, firstName, lastName, gender, birthDate } = registerDto;
+    const { email, password, firstName, lastName, gender, birthDate, acceptTerms, acceptPrivacy } = registerDto;
+
+    // Проверяем, что пользователь принял все необходимые документы
+    if (!acceptTerms) {
+      throw new BadRequestException('Необходимо принять Условия использования');
+    }
+    if (!acceptPrivacy) {
+      throw new BadRequestException('Необходимо принять Политику конфиденциальности');
+    }
 
     // Проверяем, существует ли пользователь с таким email
     const existingUser = await this.userService.findByEmail(email);
@@ -400,6 +423,8 @@ export class AuthService {
       }
     }
 
+    const now = new Date();
+
     // Создаем нового пользователя без роли (roleId будет null)
     const newUser = await this.userService.create({
       email,
@@ -413,6 +438,11 @@ export class AuthService {
       roleId: undefined, // Пользователь создается без роли
       gender: gender,
       birthDate: birthDateObj,
+      termsAccepted: acceptTerms,
+      termsAcceptedAt: now,
+      privacyAccepted: acceptPrivacy,
+      privacyAcceptedAt: now,
+      isBlocked: false,
     });
 
     // Возвращаем пользователя без пароля
@@ -429,6 +459,12 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return null;
+    }
+
+    // Проверяем, не заблокирован ли пользователь
+    const isBlocked = await this.userService.checkIfBlocked(user.id);
+    if (isBlocked) {
+      throw new UnauthorizedException('Ваш аккаунт заблокирован. Обратитесь к администратору.');
     }
 
     // Возвращаем пользователя без пароля
