@@ -1,49 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { PermissionService } from './permission.service';
-import { Permission } from './permission.entity';
+import { PERMISSIONS, PermissionDefinition } from '../../common/constants/permissions.constants';
 
 @ApiTags('permissions')
 @Controller('permissions')
 export class PermissionController {
-  constructor(private readonly permissionService: PermissionService) {}
-
   @Get()
   @ApiOperation({ summary: 'Получить список всех разрешений' })
   @ApiResponse({ status: 200, description: 'Список разрешений получен успешно' })
   @ApiBearerAuth('JWT-auth')
-  async findAll(): Promise<Permission[]> {
-    return this.permissionService.findAll();
-  }
-
-  @Get(':id')
-  async findById(@Param('id') id: string): Promise<Permission | null> {
-    return this.permissionService.findById(id);
-  }
-
-  @Post()
-  async create(@Body() permissionData: Partial<Permission>): Promise<Permission> {
-    return this.permissionService.create(permissionData);
-  }
-
-  @Put(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() permissionData: Partial<Permission>
-  ): Promise<Permission | null> {
-    return this.permissionService.update(id, permissionData);
-  }
-
-  @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('id') id: string): Promise<void> {
-    return this.permissionService.delete(id);
-  }
-
-  @Post('initialize')
-  @HttpCode(HttpStatus.OK)
-  async initializeDefaultPermissions(): Promise<{ message: string }> {
-    await this.permissionService.initializeDefaultPermissions();
-    return { message: 'Default permissions initialized successfully' };
+  async findAll(): Promise<PermissionDefinition[]> {
+    // Возвращаем захардкоженные пермишены из констант
+    return PERMISSIONS;
   }
 }

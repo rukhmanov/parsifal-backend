@@ -8,13 +8,13 @@ import { PermissionsGuard, RequirePermissions } from '../../common/guards/permis
 export interface CreateRoleDto {
   name: string;
   description: string;
-  permissionIds?: string[];
+  permissionCodes?: string[];
 }
 
 export interface UpdateRoleDto {
   name?: string;
   description?: string;
-  permissionIds?: string[];
+  permissionCodes?: string[];
 }
 
 @ApiTags('roles')
@@ -43,7 +43,7 @@ export class RoleController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(['roles.create'])
   async create(@Body() roleData: CreateRoleDto): Promise<Role> {
-    return this.roleService.create(roleData, roleData.permissionIds);
+    return this.roleService.create(roleData, roleData.permissionCodes);
   }
 
   @Put(':id')
@@ -57,7 +57,7 @@ export class RoleController {
     @Param('id') id: string,
     @Body() roleData: UpdateRoleDto
   ): Promise<Role | null> {
-    return this.roleService.update(id, roleData, roleData.permissionIds);
+    return this.roleService.update(id, roleData, roleData.permissionCodes);
   }
 
   @Delete(':id')
@@ -72,20 +72,20 @@ export class RoleController {
     return this.roleService.delete(id);
   }
 
-  @Post(':id/permissions/:permissionId')
+  @Post(':id/permissions/:permissionCode')
   async addPermissionToRole(
     @Param('id') roleId: string,
-    @Param('permissionId') permissionId: string
+    @Param('permissionCode') permissionCode: string
   ): Promise<Role | null> {
-    return this.roleService.addPermissionToRole(roleId, permissionId);
+    return this.roleService.addPermissionToRole(roleId, permissionCode);
   }
 
-  @Delete(':id/permissions/:permissionId')
+  @Delete(':id/permissions/:permissionCode')
   async removePermissionFromRole(
     @Param('id') roleId: string,
-    @Param('permissionId') permissionId: string
+    @Param('permissionCode') permissionCode: string
   ): Promise<Role | null> {
-    return this.roleService.removePermissionFromRole(roleId, permissionId);
+    return this.roleService.removePermissionFromRole(roleId, permissionCode);
   }
 
   @Post('initialize')

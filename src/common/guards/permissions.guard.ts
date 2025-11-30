@@ -34,12 +34,12 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // Если у пользователя нет роли, запрещаем доступ
-    if (!user.role || !user.role.permissions) {
+    if (!user.role || !user.role.permissionCodes || user.role.permissionCodes.length === 0) {
       throw new ForbiddenException('У пользователя нет необходимых прав доступа');
     }
 
     // Проверяем, есть ли у пользователя хотя бы один из требуемых пермишенов
-    const userPermissions = user.role.permissions.map(permission => permission.code);
+    const userPermissions = user.role.permissionCodes;
     const hasRequiredPermission = requiredPermissions.some(permission => 
       userPermissions.includes(permission)
     );

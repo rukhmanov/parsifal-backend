@@ -67,6 +67,11 @@ export class PermissionService {
         description: 'Возможность удалять пользователей',
         code: 'users.delete'
       },
+      {
+        name: 'Блокировка пользователей',
+        description: 'Возможность блокировать и разблокировать пользователей',
+        code: 'users.block'
+      },
       // Пермишены для ролей
       {
         name: 'Просмотр ролей',

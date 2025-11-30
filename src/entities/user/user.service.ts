@@ -36,7 +36,7 @@ export class UserService {
         providerId,
         authProvider,
       },
-      relations: ['role', 'role.permissions']
+      relations: ['role']
     });
   }
 
@@ -55,7 +55,7 @@ export class UserService {
     // Используем cache: false чтобы избежать проблем с кэшированием
     return await this.userRepository.findOne({ 
       where: { id },
-      relations: ['role', 'role.permissions'],
+      relations: ['role'],
       cache: false
     });
   }
@@ -70,7 +70,7 @@ export class UserService {
   async findById(id: string): Promise<User | null> {
     return await this.userRepository.findOne({ 
       where: { id },
-      relations: ['role', 'role.permissions']
+      relations: ['role']
     });
   }
 
@@ -118,7 +118,7 @@ export class UserService {
   async findAll(): Promise<User[]> {
     return await this.userRepository.find({
       select: ['id', 'email', 'firstName', 'lastName', 'displayName', 'avatar', 'authProvider', 'roleId', 'isActive', 'createdAt', 'updatedAt'],
-      relations: ['role', 'role.permissions'],
+      relations: ['role'],
       order: { createdAt: 'DESC' }
     });
   }

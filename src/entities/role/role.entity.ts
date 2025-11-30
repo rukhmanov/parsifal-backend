@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToMany, OneToMany, JoinTable } from 'typeorm';
-import { Permission } from '../permission/permission.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { User } from '../user/user.entity';
 
 @Entity('roles')
@@ -13,19 +12,14 @@ export class Role {
   @Column()
   description!: string;
 
+  @Column({ type: 'simple-array', default: '' })
+  permissionCodes!: string[]; // Массив кодов пермишенов вместо связи с Permission
+
   @CreateDateColumn()
   createdAt!: Date;
 
   @UpdateDateColumn()
   updatedAt!: Date;
-
-  @ManyToMany(() => Permission, permission => permission.roles)
-  @JoinTable({
-    name: 'role_permissions',
-    joinColumn: { name: 'roleId', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'permissionId', referencedColumnName: 'id' }
-  })
-  permissions!: Permission[];
 
   @OneToMany(() => User, user => user.role)
   users!: User[];
