@@ -34,4 +34,8 @@ export class RegisterDto {
   @IsBoolean({ message: 'Необходимо принять Политику конфиденциальности' })
   @IsNotEmpty({ message: 'Необходимо принять Политику конфиденциальности' })
   acceptPrivacy!: boolean;
+
+  @IsBoolean({ message: 'Необходимо подтвердить совершеннолетие' })
+  @IsNotEmpty({ message: 'Необходимо подтвердить совершеннолетие' })
+  confirmAge!: boolean;
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, UseInterceptors, UploadedFile, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, UseInterceptors, UploadedFile, UseGuards, Request, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { UserService } from './user.service';
@@ -166,6 +166,22 @@ export class UserController {
         if (currentBirthDate !== newBirthDate) {
           throw new ForbiddenException('Нельзя изменить дату рождения, так как она была установлена при регистрации');
         }
+      } else if (!currentUser.birthDate && 'birthDate' in updateData && updateData.birthDate) {
+        // Проверяем возраст при первой установке даты рождения
+        const birthDateObj = updateData.birthDate instanceof Date 
+          ? updateData.birthDate 
+          : new Date(updateData.birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birthDateObj.getFullYear();
+        const monthDiff = today.getMonth() - birthDateObj.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
+          age--;
+        }
+        
+        if (age < 18) {
+          throw new BadRequestException('Для использования сервиса необходимо достичь возраста 18 лет');
+        }
       }
       
       // Удаляем gender и birthDate из updateData, если они уже установлены (заблокированы)
@@ -253,6 +269,22 @@ export class UserController {
       allowedFields.push('gender');
     }
     if (!currentUser.birthDate && 'birthDate' in dataWithoutDisplayName) {
+      // Проверяем возраст перед добавлением в разрешенные поля
+      const newBirthDate = (dataWithoutDisplayName as any).birthDate;
+      if (newBirthDate) {
+        const birthDateObj = newBirthDate instanceof Date ? newBirthDate : new Date(newBirthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birthDateObj.getFullYear();
+        const monthDiff = today.getMonth() - birthDateObj.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
+          age--;
+        }
+        
+        if (age < 18) {
+          throw new BadRequestException('Для использования сервиса необходимо достичь возраста 18 лет');
+        }
+      }
       allowedFields.push('birthDate');
     }
 
@@ -520,17 +552,22 @@ export class UserController {
       type: 'object',
       properties: {
         acceptTerms: { type: 'boolean' },
-        acceptPrivacy: { type: 'boolean' }
+        acceptPrivacy: { type: 'boolean' },
+        confirmAge: { type: 'boolean' }
       },
-      required: ['acceptTerms', 'acceptPrivacy']
+      required: ['acceptTerms', 'acceptPrivacy', 'confirmAge']
     }
   })
   async acceptLegalDocuments(
-    @Body() body: { acceptTerms: boolean; acceptPrivacy: boolean },
+    @Body() body: { acceptTerms: boolean; acceptPrivacy: boolean; confirmAge: boolean },
     @Request() req: any
   ): Promise<User> {
     const userId = req.user.id;
     const normalizedId = this.normalizeUserId(String(userId));
+    
+    if (!body.confirmAge) {
+      throw new BadRequestException('Необходимо подтвердить совершеннолетие');
+    }
     
     const now = new Date();
     return this.userService.update(normalizedId, {

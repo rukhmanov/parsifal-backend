@@ -394,7 +394,7 @@ export class AuthService {
 
   // Методы для локальной аутентификации
   async register(registerDto: RegisterDto): Promise<User> {
-    const { email, password, firstName, lastName, gender, birthDate, acceptTerms, acceptPrivacy } = registerDto;
+    const { email, password, firstName, lastName, gender, birthDate, acceptTerms, acceptPrivacy, confirmAge } = registerDto;
 
     // Проверяем, что пользователь принял все необходимые документы
     if (!acceptTerms) {
@@ -402,6 +402,25 @@ export class AuthService {
     }
     if (!acceptPrivacy) {
       throw new BadRequestException('Необходимо принять Политику конфиденциальности');
+    }
+    if (!confirmAge) {
+      throw new BadRequestException('Необходимо подтвердить совершеннолетие');
+    }
+
+    // Проверяем возраст пользователя, если указана дата рождения
+    if (birthDate) {
+      const birthDateObj = new Date(birthDate);
+      const today = new Date();
+      let age = today.getFullYear() - birthDateObj.getFullYear();
+      const monthDiff = today.getMonth() - birthDateObj.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
+        age--;
+      }
+      
+      if (age < 18) {
+        throw new BadRequestException('Для регистрации необходимо достичь возраста 18 лет');
+      }
     }
 
     // Проверяем, существует ли пользователь с таким email
