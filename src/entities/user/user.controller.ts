@@ -7,6 +7,7 @@ import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto
 import { S3Service } from '../../common/services/s3.service';
 import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { getAllPermissionCodes } from '../../common/constants/permissions.constants';
 
 export interface CreateUserDto {
   email: string;
@@ -124,9 +125,14 @@ export class UserController {
     const normalizedCurrentUserId = this.normalizeUserId(String(user.id));
 
     // Проверяем, есть ли у пользователя права на редактирование пользователей
-    const hasEditPermission = user.role?.permissions?.some(
-      (permission: { code: string }) => permission.code === 'users.edit'
-    );
+    let userPermissionCodes = user.role?.permissionCodes || [];
+    
+    // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
+    if (user.role?.name === 'Администратор' && userPermissionCodes.length === 0) {
+      userPermissionCodes = getAllPermissionCodes();
+    }
+    
+    const hasEditPermission = userPermissionCodes.includes('users.edit');
 
     // Удаляем displayName из данных, так как он будет автоматически сформирован
     // Разрешаем avatar только для удаления (если это пустая строка)
@@ -416,9 +422,14 @@ export class UserController {
     const normalizedCurrentUserId = this.normalizeUserId(String(user.id));
 
     // Проверяем, есть ли у пользователя права на редактирование пользователей
-    const hasEditPermission = user.role?.permissions?.some(
-      (permission: { code: string }) => permission.code === 'users.edit'
-    );
+    let userPermissionCodes = user.role?.permissionCodes || [];
+    
+    // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
+    if (user.role?.name === 'Администратор' && userPermissionCodes.length === 0) {
+      userPermissionCodes = getAllPermissionCodes();
+    }
+    
+    const hasEditPermission = userPermissionCodes.includes('users.edit');
 
     // Если прав нет - проверяем, что это самообновление
     if (!hasEditPermission && normalizedCurrentUserId !== normalizedId) {
@@ -475,7 +486,14 @@ export class UserController {
       }
 
       // Проверяем, есть ли у пользователя права на удаление пользователей
-      const hasDeletePermission = userWithPermissions.role?.permissionCodes?.includes('users.delete') || false;
+      let deletePermissionCodes = userWithPermissions.role?.permissionCodes || [];
+      
+      // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
+      if (userWithPermissions.role?.name === 'Администратор' && deletePermissionCodes.length === 0) {
+        deletePermissionCodes = getAllPermissionCodes();
+      }
+      
+      const hasDeletePermission = deletePermissionCodes.includes('users.delete');
 
       if (!hasDeletePermission) {
         throw new ForbiddenException('Недостаточно прав для удаления этого пользователя');

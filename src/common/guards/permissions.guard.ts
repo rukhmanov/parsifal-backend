@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { User } from '../../entities/user/user.entity';
+import { getAllPermissionCodes } from '../constants/permissions.constants';
 
 export const PERMISSIONS_KEY = 'permissions';
 
@@ -34,12 +35,24 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // Если у пользователя нет роли, запрещаем доступ
-    if (!user.role || !user.role.permissionCodes || user.role.permissionCodes.length === 0) {
+    if (!user.role) {
+      throw new ForbiddenException('У пользователя нет необходимых прав доступа');
+    }
+
+    // Получаем пермишены пользователя
+    let userPermissions = user.role.permissionCodes || [];
+    
+    // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
+    if (user.role.name === 'Администратор' && userPermissions.length === 0) {
+      userPermissions = getAllPermissionCodes();
+    }
+
+    // Если у пользователя все еще нет пермишенов, запрещаем доступ
+    if (userPermissions.length === 0) {
       throw new ForbiddenException('У пользователя нет необходимых прав доступа');
     }
 
     // Проверяем, есть ли у пользователя хотя бы один из требуемых пермишенов
-    const userPermissions = user.role.permissionCodes;
     const hasRequiredPermission = requiredPermissions.some(permission => 
       userPermissions.includes(permission)
     );
