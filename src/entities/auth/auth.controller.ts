@@ -260,7 +260,7 @@ export class AuthController {
           throw new Error('User not found');
         }
 
-        const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+        const formattedResponse = await this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
         // Получаем список ID пользователей, которым отправлены заявки
         const sentFriendRequestIds = await this.friendRequestService.getSentFriendRequestIds(user.id);
@@ -295,7 +295,7 @@ export class AuthController {
 
         const jwtToken = await this.authService.generateJwtToken(user);
         
-        const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+        const formattedResponse = await this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
         // Получаем список ID пользователей, которым отправлены заявки
         const sentFriendRequestIds = await this.friendRequestService.getSentFriendRequestIds(user.id);
@@ -427,7 +427,7 @@ export class AuthController {
           throw new Error('User not found');
         }
 
-        const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+        const formattedResponse = await this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
         // Получаем список ID пользователей, которым отправлены заявки
         const sentFriendRequestIds = await this.friendRequestService.getSentFriendRequestIds(user.id);
@@ -462,7 +462,7 @@ export class AuthController {
 
         const jwtToken = await this.authService.generateJwtToken(user);
         
-        const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+        const formattedResponse = await this.authService.formatUserResponseWithPermissions(userWithPermissions);
         
         // Получаем список ID пользователей, которым отправлены заявки
         const sentFriendRequestIds = await this.friendRequestService.getSentFriendRequestIds(user.id);
@@ -534,7 +534,7 @@ export class AuthController {
         throw new Error('User not found');
       }
 
-      const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+      const formattedResponse = await this.authService.formatUserResponseWithPermissions(userWithPermissions);
       
       return {
         id: formattedResponse.id,
@@ -572,7 +572,7 @@ export class AuthController {
       throw new Error('User not found');
     }
 
-    const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+    const formattedResponse = await this.authService.formatUserResponseWithPermissions(userWithPermissions);
     
     return {
       user: {
@@ -622,7 +622,7 @@ export class AuthController {
       throw new Error('User not found');
     }
 
-    const formattedResponse = this.authService.formatUserResponseWithPermissions(userWithPermissions);
+    const formattedResponse = await this.authService.formatUserResponseWithPermissions(userWithPermissions);
     
     return {
       user: {

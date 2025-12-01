@@ -40,7 +40,7 @@ export class ReportController {
   @RequirePermissions(['reports.view'])
   @ApiOperation({ summary: 'Получить все жалобы (только для администраторов)' })
   @ApiResponse({ status: 200, description: 'Список жалоб' })
-  async findAll(@Request() req: any) {
+  async findAll() {
     // Можно добавить фильтрацию по статусу через query параметры
     return this.reportService.findAll();
   }

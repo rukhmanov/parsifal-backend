@@ -475,9 +475,7 @@ export class UserController {
       }
 
       // Проверяем, есть ли у пользователя права на удаление пользователей
-      const hasDeletePermission = userWithPermissions.role?.permissions?.some(
-        (permission: { code: string }) => permission.code === 'users.delete'
-      );
+      const hasDeletePermission = userWithPermissions.role?.permissionCodes?.includes('users.delete') || false;
 
       if (!hasDeletePermission) {
         throw new ForbiddenException('Недостаточно прав для удаления этого пользователя');
@@ -570,12 +568,18 @@ export class UserController {
     }
     
     const now = new Date();
-    return this.userService.update(normalizedId, {
+    const updatedUser = await this.userService.update(normalizedId, {
       termsAccepted: body.acceptTerms,
       termsAcceptedAt: body.acceptTerms ? now : undefined,
       privacyAccepted: body.acceptPrivacy,
       privacyAcceptedAt: body.acceptPrivacy ? now : undefined,
     });
+    
+    if (!updatedUser) {
+      throw new BadRequestException('Пользователь не найден');
+    }
+    
+    return updatedUser;
   }
 
 }

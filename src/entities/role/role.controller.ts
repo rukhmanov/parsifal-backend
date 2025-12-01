@@ -4,6 +4,7 @@ import { RoleService } from './role.service';
 import { Role } from './role.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
+import { PERMISSIONS, getAllPermissionCodes, PermissionDefinition } from '../../common/constants/permissions.constants';
 
 export interface CreateRoleDto {
   name: string;
@@ -26,13 +27,79 @@ export class RoleController {
   @ApiOperation({ summary: 'Получить список всех ролей' })
   @ApiResponse({ status: 200, description: 'Список ролей получен успешно' })
   @ApiBearerAuth('JWT-auth')
-  async findAll(): Promise<Role[]> {
-    return this.roleService.findAll();
+  async findAll(): Promise<any[]> {
+    const roles = await this.roleService.findAll();
+    
+    // Загружаем пермишены для каждой роли (из констант, а не из БД)
+    const rolesWithPermissions = roles.map((role) => {
+      let permissionCodes = role.permissionCodes || [];
+      
+      // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
+      if (role.name === 'Администратор' && permissionCodes.length === 0) {
+        permissionCodes = getAllPermissionCodes();
+      }
+      
+      // Получаем пермишены из констант по кодам
+      const permissions = permissionCodes
+        .map(code => PERMISSIONS.find(p => p.code === code))
+        .filter((permission): permission is PermissionDefinition => permission !== undefined)
+        .map(permission => ({
+          id: permission.code, // Используем code как id, так как нет БД
+          name: permission.name,
+          code: permission.code,
+          description: permission.description
+        }));
+
+      return {
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        permissionCodes: role.permissionCodes,
+        permissions: permissions,
+        createdAt: role.createdAt,
+        updatedAt: role.updatedAt
+      };
+    });
+
+    return rolesWithPermissions;
   }
 
   @Get(':id')
-  async findById(@Param('id') id: string): Promise<Role | null> {
-    return this.roleService.findById(id);
+  async findById(@Param('id') id: string): Promise<any | null> {
+    const role = await this.roleService.findById(id);
+    
+    if (!role) {
+      return null;
+    }
+
+    // Загружаем пермишены для роли (из констант, а не из БД)
+    let permissionCodes = role.permissionCodes || [];
+    
+    // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
+    if (role.name === 'Администратор' && permissionCodes.length === 0) {
+      permissionCodes = getAllPermissionCodes();
+    }
+    
+    // Получаем пермишены из констант по кодам
+    const permissions = permissionCodes
+      .map(code => PERMISSIONS.find(p => p.code === code))
+      .filter((permission): permission is PermissionDefinition => permission !== undefined)
+      .map(permission => ({
+        id: permission.code, // Используем code как id, так как нет БД
+        name: permission.name,
+        code: permission.code,
+        description: permission.description
+      }));
+
+    return {
+      id: role.id,
+      name: role.name,
+      description: role.description,
+      permissionCodes: role.permissionCodes,
+      permissions: permissions,
+      createdAt: role.createdAt,
+      updatedAt: role.updatedAt
+    };
   }
 
   @Post()

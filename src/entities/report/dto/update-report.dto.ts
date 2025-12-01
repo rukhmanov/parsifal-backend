@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsIn, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsIn } from 'class-validator';
 
 export class UpdateReportDto {
   @IsOptional()

@@ -21,7 +21,9 @@ export class Permission {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @ManyToMany(() => Role, role => role.permissions)
+  // Связь ManyToMany с Role через промежуточную таблицу
+  // Примечание: Role использует permissionCodes (массив строк) вместо прямой связи
+  @ManyToMany(() => Role)
   @JoinTable({
     name: 'role_permissions',
     joinColumn: { name: 'permissionId', referencedColumnName: 'id' },

@@ -233,7 +233,7 @@ export class UserService {
 
     user.isBlocked = true;
     user.blockReason = reason;
-    user.blockedUntil = blockedUntil || null; // null = permanent block
+    user.blockedUntil = blockedUntil || undefined; // undefined = permanent block
 
     return this.userRepository.save(user);
   }
@@ -245,8 +245,8 @@ export class UserService {
     }
 
     user.isBlocked = false;
-    user.blockReason = null;
-    user.blockedUntil = null;
+    user.blockReason = undefined;
+    user.blockedUntil = undefined;
 
     return this.userRepository.save(user);
   }

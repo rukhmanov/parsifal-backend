@@ -9,6 +9,7 @@ import { User } from '../user/user.entity';
 import * as crypto from 'crypto';
 import { EmailNewService } from '../../common/email-new.service';
 import { S3Service } from '../../common/services/s3.service';
+import { PERMISSIONS, getAllPermissionCodes, PermissionDefinition } from '../../common/constants/permissions.constants';
 
 // Единый интерфейс для данных от разных провайдеров
 export interface UnifiedUserData {
@@ -594,13 +595,25 @@ export class AuthService {
   }
 
   // Метод для формирования ответа с пермишенами для всех типов авторизации
-  formatUserResponseWithPermissions(user: User): any {
-    const permissions = user.role?.permissions?.map(permission => ({
-      id: permission.id,
-      name: permission.name,
-      code: permission.code,
-      description: permission.description
-    })) || [];
+  async formatUserResponseWithPermissions(user: User): Promise<any> {
+    // Загружаем пермишены по кодам из permissionCodes (из констант, а не из БД)
+    let permissionCodes = user.role?.permissionCodes || [];
+    
+    // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
+    if (user.role?.name === 'Администратор' && permissionCodes.length === 0) {
+      permissionCodes = getAllPermissionCodes();
+    }
+    
+    // Получаем пермишены из констант по кодам
+    const permissions = permissionCodes
+      .map(code => PERMISSIONS.find(p => p.code === code))
+      .filter((permission): permission is PermissionDefinition => permission !== undefined)
+      .map(permission => ({
+        id: permission.code, // Используем code как id, так как нет БД
+        name: permission.name,
+        code: permission.code,
+        description: permission.description
+      }));
 
     // Главное фото - первый элемент массива photos, или avatar для обратной совместимости
     const photos = user.photos || [];
