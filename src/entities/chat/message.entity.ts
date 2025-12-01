@@ -25,6 +25,13 @@ export class Message {
   @Column({ type: 'text' })
   content!: string;
 
+  @Column({ nullable: true })
+  replyToMessageId?: string;
+
+  @ManyToOne(() => Message, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'replyToMessageId' })
+  replyToMessage?: Message;
+
   @Column({ type: 'boolean', default: false })
   isEdited!: boolean;
 

@@ -1,8 +1,8 @@
-import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role } from './role.entity';
-import { getAllPermissionCodes, ADMIN_ROLE_ID, ADMIN_ROLE_NAME, getAdminRole } from '../../common/constants/permissions.constants';
+import { ADMIN_ROLE_ID, ADMIN_ROLE_NAME, getAdminRole } from '../../common/constants/permissions.constants';
 
 @Injectable()
 export class RoleService {

@@ -279,18 +279,35 @@ export class ChatService {
     // Проверяем, что чат существует и пользователь является участником
     await this.findById(chatId, senderId);
 
+    // Если указан replyToMessageId, проверяем что сообщение существует и в том же чате
+    if (createMessageDto.replyToMessageId) {
+      const replyToMessage = await this.messageRepository.findOne({
+        where: { id: createMessageDto.replyToMessageId },
+        relations: ['sender']
+      });
+      
+      if (!replyToMessage) {
+        throw new NotFoundException('Сообщение, на которое вы отвечаете, не найдено');
+      }
+      
+      if (replyToMessage.chatId !== chatId) {
+        throw new BadRequestException('Нельзя отвечать на сообщение из другого чата');
+      }
+    }
+
     const message = this.messageRepository.create({
       chatId,
       senderId,
       content: createMessageDto.content,
+      replyToMessageId: createMessageDto.replyToMessageId,
     });
 
     const savedMessage = await this.messageRepository.save(message);
     
-    // Загружаем сообщение с relation sender для корректного отображения
+    // Загружаем сообщение с relation sender и replyToMessage для корректного отображения
     const messageWithSender = await this.messageRepository.findOne({
       where: { id: savedMessage.id },
-      relations: ['sender'],
+      relations: ['sender', 'replyToMessage', 'replyToMessage.sender'],
     });
 
     // Получаем всех участников чата для создания уведомлений
@@ -350,6 +367,8 @@ export class ChatService {
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
       .leftJoinAndSelect('message.sender', 'sender')
+      .leftJoinAndSelect('message.replyToMessage', 'replyToMessage')
+      .leftJoinAndSelect('replyToMessage.sender', 'replyToMessageSender')
       .where('message.chatId = :chatId', { chatId })
       .orderBy('message.createdAt', 'DESC')
       .limit(limit);
@@ -389,7 +408,7 @@ export class ChatService {
           chatId,
           createdAt: MoreThan(after),
         },
-        relations: ['sender'],
+        relations: ['sender', 'replyToMessage', 'replyToMessage.sender'],
         order: { createdAt: 'ASC' },
       });
 

@@ -127,6 +127,7 @@ export const getAdminRole = () => ({
   description: ADMIN_ROLE_DESCRIPTION,
   permissionCodes: [] as string[], // Пустой массив - означает все права
   createdAt: new Date('2020-01-01T00:00:00.000Z'),
-  updatedAt: new Date('2020-01-01T00:00:00.000Z')
+  updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+  users: [] // Пустой массив для соответствия типу Role
 });
 
