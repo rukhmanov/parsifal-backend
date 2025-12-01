@@ -116,3 +116,17 @@ export const getPermissionsByCategory = (): Record<string, PermissionDefinition[
   }, {} as Record<string, PermissionDefinition[]>);
 };
 
+// Захардкоженная роль администратора (не хранится в БД)
+export const ADMIN_ROLE_ID = '00000000-0000-0000-0000-000000000000';
+export const ADMIN_ROLE_NAME = 'Администратор';
+export const ADMIN_ROLE_DESCRIPTION = 'Полный доступ ко всем функциям системы';
+
+export const getAdminRole = () => ({
+  id: ADMIN_ROLE_ID,
+  name: ADMIN_ROLE_NAME,
+  description: ADMIN_ROLE_DESCRIPTION,
+  permissionCodes: [] as string[], // Пустой массив - означает все права
+  createdAt: new Date('2020-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2020-01-01T00:00:00.000Z')
+});
+

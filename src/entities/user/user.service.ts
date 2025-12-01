@@ -5,6 +5,7 @@ import { User } from './user.entity';
 import { Event } from '../event/event.entity';
 import { FilterService } from '../../common/services/filter.service';
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
+import { ADMIN_ROLE_ID, getAdminRole } from '../../common/constants/permissions.constants';
 
 @Injectable()
 export class UserService {
@@ -30,7 +31,7 @@ export class UserService {
   ];
 
   async findByEmailAndProvider(email: string, providerId: string, authProvider: 'google' | 'yandex'): Promise<User | null> {
-    return await this.userRepository.findOne({
+    const user = await this.userRepository.findOne({
       where: {
         email,
         providerId,
@@ -38,6 +39,13 @@ export class UserService {
       },
       relations: ['role']
     });
+    
+    // Если у пользователя роль администратора, подставляем захардкоженную роль
+    if (user && user.roleId === ADMIN_ROLE_ID) {
+      user.role = getAdminRole() as any;
+    }
+    
+    return user;
   }
 
   async create(userData: Partial<User>): Promise<User> {
@@ -53,11 +61,18 @@ export class UserService {
     
     // Принудительно перезагружаем пользователя с обновленными связями
     // Используем cache: false чтобы избежать проблем с кэшированием
-    return await this.userRepository.findOne({ 
+    const user = await this.userRepository.findOne({ 
       where: { id },
       relations: ['role'],
       cache: false
     });
+    
+    // Если у пользователя роль администратора, подставляем захардкоженную роль
+    if (user && user.roleId === ADMIN_ROLE_ID) {
+      user.role = getAdminRole() as any;
+    }
+    
+    return user;
   }
 
   async delete(id: string): Promise<void> {
@@ -68,10 +83,17 @@ export class UserService {
   }
 
   async findById(id: string): Promise<User | null> {
-    return await this.userRepository.findOne({ 
+    const user = await this.userRepository.findOne({ 
       where: { id },
       relations: ['role']
     });
+    
+    // Если у пользователя роль администратора, подставляем захардкоженную роль
+    if (user && user.roleId === ADMIN_ROLE_ID) {
+      user.role = getAdminRole() as any;
+    }
+    
+    return user;
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -116,10 +138,18 @@ export class UserService {
 
   // Получение всех пользователей (для админ панели)
   async findAll(): Promise<User[]> {
-    return await this.userRepository.find({
+    const users = await this.userRepository.find({
       select: ['id', 'email', 'firstName', 'lastName', 'displayName', 'avatar', 'authProvider', 'roleId', 'isActive', 'createdAt', 'updatedAt'],
       relations: ['role'],
       order: { createdAt: 'DESC' }
+    });
+    
+    // Если у пользователя роль администратора, подставляем захардкоженную роль
+    return users.map(user => {
+      if (user.roleId === ADMIN_ROLE_ID) {
+        user.role = getAdminRole() as any;
+      }
+      return user;
     });
   }
 
