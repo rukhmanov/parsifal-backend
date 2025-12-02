@@ -20,6 +20,7 @@ export interface CreateEventDto {
   longitude?: number;
   address?: string;
   addressComment?: string;
+  hideAddressForNonParticipants?: boolean;
   entrance?: number;
   floor?: number;
   apartment?: number;
@@ -41,6 +42,7 @@ export interface UpdateEventDto {
   longitude?: number;
   address?: string;
   addressComment?: string;
+  hideAddressForNonParticipants?: boolean;
   entrance?: number;
   floor?: number;
   apartment?: number;
@@ -99,12 +101,13 @@ export class EventService {
       throw new BadRequestException('Вы не можете создать больше трех событий одновременно. Удалите одно из существующих событий, чтобы создать новое.');
     }
 
-    // Устанавливаем значения по умолчанию для entrance, floor, apartment
+    // Устанавливаем значения по умолчанию для entrance, floor, apartment, hideAddressForNonParticipants
     const event = this.eventRepository.create({
       ...eventData,
       entrance: eventData.entrance ?? 1,
       floor: eventData.floor ?? 1,
       apartment: eventData.apartment ?? 1,
+      hideAddressForNonParticipants: eventData.hideAddressForNonParticipants ?? false,
       creatorId,
     });
     return await this.eventRepository.save(event);

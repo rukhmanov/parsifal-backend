@@ -33,6 +33,9 @@ export class Event {
   @Column({ type: 'text', nullable: true })
   addressComment?: string; // Комментарий к адресу
 
+  @Column({ type: 'boolean', default: false })
+  hideAddressForNonParticipants!: boolean; // Скрывать адрес для не участников
+
   @Column({ type: 'int', nullable: true })
   entrance?: number; // Подъезд
 
