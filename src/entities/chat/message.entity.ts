@@ -38,6 +38,12 @@ export class Message {
   @Column({ type: 'boolean', default: false })
   isDeleted!: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  isSystem!: boolean;
+
+  @Column({ nullable: true })
+  systemType?: string; // 'participant_joined', 'participant_left', 'participant_removed'
+
   @CreateDateColumn()
   createdAt!: Date;
 

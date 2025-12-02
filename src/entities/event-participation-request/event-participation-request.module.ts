@@ -10,6 +10,7 @@ import { UserModule } from '../user/user.module';
 import { EventModule } from '../event/event.module';
 import { NotificationModule } from '../notification/notification.module';
 import { WebSocketModule } from '../websocket/websocket.module';
+import { ChatModule } from '../chat/chat.module';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
@@ -21,6 +22,7 @@ import { PassportModule } from '@nestjs/passport';
     EventModule,
     NotificationModule,
     forwardRef(() => WebSocketModule),
+    forwardRef(() => ChatModule),
     PassportModule
   ],
   controllers: [EventParticipationRequestController],

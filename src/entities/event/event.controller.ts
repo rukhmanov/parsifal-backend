@@ -178,7 +178,7 @@ export class EventController {
       throw new ForbiddenException('Нельзя удалить создателя события');
     }
 
-    return this.eventService.removeParticipant(eventId, userId);
+    return this.eventService.removeParticipant(eventId, userId, true);
   }
 
   @Delete(':id/participants')

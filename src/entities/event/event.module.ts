@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { Event } from './event.entity';
@@ -10,6 +10,7 @@ import { UserModule } from '../user/user.module';
 import { User } from '../user/user.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { CommonModule } from '../../common/common.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { CommonModule } from '../../common/common.module';
     PassportModule,
     UserModule,
     NotificationModule,
-    CommonModule
+    CommonModule,
+    forwardRef(() => ChatModule),
   ],
   controllers: [EventController],
   providers: [EventService, JwtAuthGuard, JwtStrategy],

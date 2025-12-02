@@ -355,6 +355,85 @@ export class ChatService {
     return this.sanitizeDeletedMessage(messageToReturn);
   }
 
+  /**
+   * Отправить системное сообщение в чат события
+   */
+  async sendSystemMessage(
+    eventId: string,
+    systemType: 'participant_joined' | 'participant_left' | 'participant_removed',
+    userId: string,
+  ): Promise<Message | null> {
+    // Находим чат события
+    const chat = await this.chatRepository.findOne({
+      where: { type: ChatType.EVENT, eventId },
+    });
+
+    if (!chat) {
+      // Если чата еще нет, не создаем системное сообщение
+      return null;
+    }
+
+    // Загружаем пользователя для получения имени
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      return null;
+    }
+
+    // Формируем текст системного сообщения
+    const userName = user.displayName || `${user.firstName} ${user.lastName}`.trim() || user.email;
+    let content = '';
+    switch (systemType) {
+      case 'participant_joined':
+        content = `${userName} вступил(а) в событие`;
+        break;
+      case 'participant_left':
+        content = `${userName} покинул(а) событие`;
+        break;
+      case 'participant_removed':
+        content = `${userName} был(а) удален(а) из события`;
+        break;
+    }
+
+    // Создаем системное сообщение
+    const message = this.messageRepository.create({
+      chatId: chat.id,
+      senderId: userId, // Для системных сообщений senderId - это ID пользователя, о котором идет речь
+      content,
+      isSystem: true,
+      systemType,
+    });
+
+    const savedMessage = await this.messageRepository.save(message);
+
+    // Загружаем сообщение с relation sender
+    const messageWithSender = await this.messageRepository.findOne({
+      where: { id: savedMessage.id },
+      relations: ['sender'],
+    });
+
+    // Получаем всех участников чата для отправки через WebSocket
+    const participants = await this.chatParticipantRepository.find({
+      where: { chatId: chat.id },
+      relations: ['user'],
+    });
+
+    // Отправляем системное сообщение через WebSocket всем участникам чата
+    if (this.webSocketGateway && messageWithSender) {
+      const messageData = this.sanitizeDeletedMessage(messageWithSender);
+      participants.forEach(participant => {
+        if (this.webSocketGateway) {
+          this.webSocketGateway.sendChatMessageToUser(participant.userId, {
+            action: 'message_received',
+            chatId: chat.id,
+            message: messageData,
+          });
+        }
+      });
+    }
+
+    return messageWithSender || savedMessage;
+  }
+
   async getMessages(
     chatId: string,
     userId: string,

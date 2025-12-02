@@ -8,6 +8,7 @@ import { Friend } from '../friend/friend.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { ChatService } from '../chat/chat.service';
 
 @Injectable()
 export class EventParticipationRequestService {
@@ -24,6 +25,8 @@ export class EventParticipationRequestService {
     private readonly notificationService: NotificationService,
     @Inject(forwardRef(() => AppWebSocketGateway))
     private readonly webSocketGateway?: AppWebSocketGateway,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService?: ChatService,
   ) {}
 
   /**
@@ -259,6 +262,15 @@ export class EventParticipationRequestService {
     if (event && !event.participants.some(p => p.id === request.userId)) {
       event.participants.push(request.user);
       await this.eventRepository.save(event);
+
+      // Отправляем системное сообщение в чат события о вступлении участника
+      try {
+        if (this.chatService) {
+          await this.chatService.sendSystemMessage(request.eventId, 'participant_joined', request.userId);
+        }
+      } catch (error) {
+        console.error('Ошибка отправки системного сообщения о вступлении участника:', error);
+      }
     }
 
     // Удаляем заявку из БД после принятия

@@ -8,6 +8,7 @@ import { ProfanityFilterService } from '../../common/services/profanity-filter.s
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
+import { ChatService } from '../chat/chat.service';
 
 export interface CreateEventDto {
   title: string;
@@ -73,6 +74,8 @@ export class EventService {
     private readonly profanityFilterService: ProfanityFilterService,
     @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService?: ChatService,
   ) {}
 
   async create(eventData: CreateEventDto, creatorId: string): Promise<Event> {
@@ -248,7 +251,7 @@ export class EventService {
     return await this.eventRepository.save(event);
   }
 
-  async removeParticipant(eventId: string, userId: string): Promise<Event | null> {
+  async removeParticipant(eventId: string, userId: string, removedByCreator: boolean = false): Promise<Event | null> {
     const event = await this.eventRepository.findOne({
       where: { id: eventId },
       relations: ['participants']
@@ -270,6 +273,16 @@ export class EventService {
       });
     } catch (error) {
       console.error('Ошибка создания уведомления об удалении из события:', error);
+    }
+
+    // Отправляем системное сообщение в чат события
+    try {
+      if (this.chatService) {
+        const systemType = removedByCreator ? 'participant_removed' : 'participant_left';
+        await this.chatService.sendSystemMessage(eventId, systemType, userId);
+      }
+    } catch (error) {
+      console.error('Ошибка отправки системного сообщения о выходе участника:', error);
     }
 
     return savedEvent;
