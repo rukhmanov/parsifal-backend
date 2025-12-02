@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Get, Param, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Param, Body, UseGuards, Request, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { EventParticipationRequestService } from './event-participation-request.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -143,9 +143,15 @@ export class EventParticipationRequestController {
   @Get('friends-for-invitation')
   @ApiOperation({ summary: 'Получить список друзей для отправки приглашений' })
   @ApiResponse({ status: 200, description: 'Список друзей получен успешно' })
-  async getFriendsForInvitation(@Request() req: any) {
+  async getFriendsForInvitation(
+    @Request() req: any,
+    @Query('skip') skip?: number,
+    @Query('take') take?: number
+  ) {
     const userId = req.user.id;
-    return await this.requestService.getFriendsForInvitation(userId);
+    const skipValue = skip ? parseInt(skip.toString(), 10) : 0;
+    const takeValue = take ? parseInt(take.toString(), 10) : 25;
+    return await this.requestService.getFriendsForInvitation(userId, skipValue, takeValue);
   }
 }
 

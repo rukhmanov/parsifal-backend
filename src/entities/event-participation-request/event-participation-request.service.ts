@@ -592,21 +592,26 @@ export class EventParticipationRequestService {
   /**
    * Получить список друзей для отправки приглашений
    */
-  async getFriendsForInvitation(userId: string): Promise<any[]> {
-    const friends = await this.friendRepository.find({
+  async getFriendsForInvitation(userId: string, skip: number = 0, take: number = 25): Promise<{ friends: any[]; total: number }> {
+    const [friends, total] = await this.friendRepository.findAndCount({
       where: { userId },
       relations: ['friend'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
+      skip,
+      take
     });
 
-    return friends.map(friend => ({
-      id: friend.friend.id,
-      email: friend.friend.email,
-      firstName: friend.friend.firstName,
-      lastName: friend.friend.lastName,
-      displayName: friend.friend.displayName,
-      avatar: friend.friend.avatar,
-    }));
+    return {
+      friends: friends.map(friend => ({
+        id: friend.friend.id,
+        email: friend.friend.email,
+        firstName: friend.friend.firstName,
+        lastName: friend.friend.lastName,
+        displayName: friend.friend.displayName,
+        avatar: friend.friend.avatar,
+      })),
+      total
+    };
   }
 }
 
