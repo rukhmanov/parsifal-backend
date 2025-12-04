@@ -623,14 +623,7 @@ export class EventParticipationRequestService {
     });
 
     return {
-      friends: friends.map(friend => ({
-        id: friend.friend.id,
-        email: friend.friend.email,
-        firstName: friend.friend.firstName,
-        lastName: friend.friend.lastName,
-        displayName: friend.friend.displayName,
-        avatar: friend.friend.avatar,
-      })),
+      friends: friends.map(friend => toSafeUserDto(friend.friend)),
       total
     };
   }

@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, forwardRef, Inject } from '@nestjs/common';
+import { toSafeUserDto } from '../../common/dto/safe-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FriendRequest } from './friend-request.entity';
@@ -96,14 +97,7 @@ export class FriendRequestService {
         request: {
           id: requestWithRelations.id,
           senderId: requestWithRelations.senderId,
-          sender: {
-            id: requestWithRelations.sender.id,
-            email: requestWithRelations.sender.email,
-            firstName: requestWithRelations.sender.firstName,
-            lastName: requestWithRelations.sender.lastName,
-            displayName: requestWithRelations.sender.displayName,
-            avatar: requestWithRelations.sender.avatar,
-          },
+          sender: toSafeUserDto(requestWithRelations.sender),
           comment: requestWithRelations.comment,
           createdAt: requestWithRelations.createdAt,
         },
@@ -195,14 +189,7 @@ export class FriendRequestService {
     return requests.map(request => ({
       id: request.id,
       userId: request.receiver.id,
-      user: {
-        id: request.receiver.id,
-        email: request.receiver.email,
-        firstName: request.receiver.firstName,
-        lastName: request.receiver.lastName,
-        displayName: request.receiver.displayName,
-        avatar: request.receiver.avatar,
-      },
+      user: toSafeUserDto(request.receiver),
       comment: request.comment,
       createdAt: request.createdAt
     }));
@@ -221,14 +208,7 @@ export class FriendRequestService {
     return requests.map(request => ({
       id: request.id,
       userId: request.sender.id,
-      user: {
-        id: request.sender.id,
-        email: request.sender.email,
-        firstName: request.sender.firstName,
-        lastName: request.sender.lastName,
-        displayName: request.sender.displayName,
-        avatar: request.sender.avatar,
-      },
+      user: toSafeUserDto(request.sender),
       comment: request.comment,
       createdAt: request.createdAt
     }));
@@ -380,14 +360,7 @@ export class FriendRequestService {
     return friends.map(friend => ({
       id: friend.id,
       userId: friend.friend.id,
-      user: {
-        id: friend.friend.id,
-        email: friend.friend.email,
-        firstName: friend.friend.firstName,
-        lastName: friend.friend.lastName,
-        displayName: friend.friend.displayName,
-        avatar: friend.friend.avatar,
-      },
+      user: toSafeUserDto(friend.friend),
       createdAt: friend.createdAt
     }));
   }

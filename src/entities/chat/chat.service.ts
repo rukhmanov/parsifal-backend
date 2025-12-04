@@ -12,7 +12,7 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
-import { toSafeUserDtoArray } from '../../common/dto/safe-user.dto';
+import { toSafeUserDto, toSafeUserDtoArray } from '../../common/dto/safe-user.dto';
 
 @Injectable()
 export class ChatService {
@@ -34,19 +34,32 @@ export class ChatService {
   ) {}
 
   /**
-   * Очищает content удаленных сообщений для безопасности
+   * Очищает content удаленных сообщений для безопасности и преобразует sender в безопасный формат
    */
-  private sanitizeDeletedMessage(message: Message): Message {
-    if (message.isDeleted) {
-      message.content = '';
+  private sanitizeDeletedMessage(message: Message): any {
+    const sanitized: any = {
+      ...message,
+      sender: message.sender ? toSafeUserDto(message.sender) : undefined,
+    };
+    
+    if (message.replyToMessage) {
+      sanitized.replyToMessage = {
+        ...message.replyToMessage,
+        sender: message.replyToMessage.sender ? toSafeUserDto(message.replyToMessage.sender) : undefined,
+      };
     }
-    return message;
+    
+    if (message.isDeleted) {
+      sanitized.content = '';
+    }
+    
+    return sanitized;
   }
 
   /**
    * Очищает content удаленных сообщений в массиве
    */
-  private sanitizeDeletedMessages(messages: Message[]): Message[] {
+  private sanitizeDeletedMessages(messages: Message[]): any[] {
     return messages.map(msg => this.sanitizeDeletedMessage(msg));
   }
 

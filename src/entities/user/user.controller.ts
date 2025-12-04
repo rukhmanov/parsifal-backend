@@ -8,6 +8,7 @@ import { S3Service } from '../../common/services/s3.service';
 import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { getAllPermissionCodes } from '../../common/constants/permissions.constants';
+import { toSafeUserDto } from '../../common/dto/safe-user.dto';
 
 export interface CreateUserDto {
   email: string;
@@ -50,16 +51,18 @@ export class UserController {
   @ApiBearerAuth('JWT-auth')
   // @UseGuards(JwtAuthGuard, PermissionsGuard)
   // @RequirePermissions(['users.view'])
-  async findAll(): Promise<User[]> {
-    return this.userService.findAll();
+  async findAll(): Promise<any[]> {
+    const users = await this.userService.findAll();
+    return users.map(user => toSafeUserDto(user));
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   // @RequirePermissions(['users.view'])
-  async findById(@Param('id') id: string): Promise<User | null> {
+  async findById(@Param('id') id: string): Promise<any | null> {
     const normalizedId = this.normalizeUserId(id);
-    return this.userService.findById(normalizedId);
+    const user = await this.userService.findById(normalizedId);
+    return user ? toSafeUserDto(user) : null;
   }
 
   @Post()
@@ -506,8 +509,12 @@ export class UserController {
   @Post('filter')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(['users.view'])
-  async findAllWithFilters(@Body() request: FilterRequestDto): Promise<FilterResponseDto<User>> {
-    return this.userService.findAllWithFilters(request);
+  async findAllWithFilters(@Body() request: FilterRequestDto): Promise<FilterResponseDto<any>> {
+    const response = await this.userService.findAllWithFilters(request);
+    return {
+      ...response,
+      data: response.data.map(user => toSafeUserDto(user)),
+    };
   }
 
   @Post(':id/block')
