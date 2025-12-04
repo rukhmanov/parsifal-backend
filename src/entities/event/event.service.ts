@@ -9,6 +9,7 @@ import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
 import { ChatService } from '../chat/chat.service';
+import { toSafeUserDto, toSafeUserDtoArray } from '../../common/dto/safe-user.dto';
 
 export interface CreateEventDto {
   title: string;
@@ -110,22 +111,25 @@ export class EventService {
       hideAddressForNonParticipants: eventData.hideAddressForNonParticipants ?? false,
       creatorId,
     });
-    return await this.eventRepository.save(event);
+    const savedEvent = await this.eventRepository.save(event);
+    // Загружаем с relations для безопасного преобразования
+    return await this.findById(savedEvent.id, creatorId);
   }
 
-  async findAll(): Promise<Event[]> {
+  async findAll(requestingUserId?: string): Promise<any[]> {
     const now = new Date();
-    return await this.eventRepository
+    const events = await this.eventRepository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.creator', 'creator')
       .leftJoinAndSelect('event.participants', 'participants')
       .where('event.dateTime >= :now', { now })
       .orderBy('event.dateTime', 'ASC')
       .getMany();
+    return this.toSafeEventDtoArray(events, requestingUserId);
   }
 
   // Получение событий с фильтрацией и пагинацией
-  async findAllWithFilters(request: FilterRequestDto): Promise<FilterResponseDto<Event>> {
+  async findAllWithFilters(request: FilterRequestDto, requestingUserId?: string): Promise<FilterResponseDto<any>> {
     const now = new Date();
     const queryBuilder = this.eventRepository
       .createQueryBuilder('event')
@@ -142,17 +146,24 @@ export class EventService {
     }
 
     // Создаем ответ с пагинацией
-    return await this.filterService.createPaginatedResponse(queryBuilder, request);
+    const response = await this.filterService.createPaginatedResponse(queryBuilder, request);
+    
+    // Преобразуем данные в безопасный формат
+    return {
+      ...response,
+      data: this.toSafeEventDtoArray(response.data, requestingUserId),
+    };
   }
 
-  async findAllIncludingPast(): Promise<Event[]> {
-    return await this.eventRepository.find({
+  async findAllIncludingPast(requestingUserId?: string): Promise<any[]> {
+    const events = await this.eventRepository.find({
       relations: ['creator', 'participants'],
       order: { dateTime: 'ASC' }
     });
+    return this.toSafeEventDtoArray(events, requestingUserId);
   }
 
-  async findUserEvents(userId: string, includePast: boolean = false): Promise<Event[]> {
+  async findUserEvents(userId: string, includePast: boolean = false, requestingUserId?: string): Promise<any[]> {
     const queryBuilder = this.eventRepository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.creator', 'creator')
@@ -169,7 +180,8 @@ export class EventService {
       queryBuilder.orderBy('event.dateTime', 'ASC'); // Сначала ближайшие
     }
 
-    return await queryBuilder.getMany();
+    const events = await queryBuilder.getMany();
+    return this.toSafeEventDtoArray(events, requestingUserId || userId);
   }
 
   /**
@@ -177,7 +189,7 @@ export class EventService {
    * @param userId ID пользователя
    * @param includePast Включать ли прошедшие события
    */
-  async findEventsWhereUserIsParticipant(userId: string, includePast: boolean = false): Promise<Event[]> {
+  async findEventsWhereUserIsParticipant(userId: string, includePast: boolean = false, requestingUserId?: string): Promise<any[]> {
     const queryBuilder = this.eventRepository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.creator', 'creator')
@@ -195,19 +207,79 @@ export class EventService {
       queryBuilder.orderBy('event.dateTime', 'ASC'); // Сначала ближайшие
     }
 
-    return await queryBuilder.getMany();
+    const events = await queryBuilder.getMany();
+    return this.toSafeEventDtoArray(events, requestingUserId || userId);
   }
 
-  async findById(id: string): Promise<Event | null> {
-    return await this.eventRepository.findOne({
+  /**
+   * Преобразует Event в безопасный формат для возврата клиенту
+   * Убирает чувствительные поля из creator и participants
+   * Скрывает адрес, если пользователь не участник и hideAddressForNonParticipants = true
+   */
+  private toSafeEventDto(event: Event | null, requestingUserId?: string): any {
+    if (!event) {
+      return null;
+    }
+
+    // Проверяем, является ли пользователь участником или создателем
+    const isParticipant = requestingUserId && (
+      event.participants?.some(p => p.id === requestingUserId) ||
+      event.creatorId === requestingUserId
+    );
+
+    // Определяем, нужно ли скрывать адрес
+    const shouldHideAddress = event.hideAddressForNonParticipants && !isParticipant;
+
+    return {
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      dateTime: event.dateTime,
+      itemsToBring: event.itemsToBring,
+      moneyRequired: event.moneyRequired,
+      latitude: shouldHideAddress ? undefined : event.latitude,
+      longitude: shouldHideAddress ? undefined : event.longitude,
+      address: shouldHideAddress ? undefined : event.address,
+      addressComment: shouldHideAddress ? undefined : event.addressComment,
+      hideAddressForNonParticipants: event.hideAddressForNonParticipants,
+      entrance: shouldHideAddress ? undefined : event.entrance,
+      floor: shouldHideAddress ? undefined : event.floor,
+      apartment: shouldHideAddress ? undefined : event.apartment,
+      maxParticipants: event.maxParticipants,
+      minAge: event.minAge,
+      maxAge: event.maxAge,
+      preferredGender: event.preferredGender,
+      coverImage: event.coverImage,
+      duration: event.duration,
+      creatorId: event.creatorId,
+      creator: event.creator ? toSafeUserDto(event.creator) : undefined,
+      participants: event.participants ? toSafeUserDtoArray(event.participants) : undefined,
+      createdAt: event.createdAt,
+      updatedAt: event.updatedAt,
+    };
+  }
+
+  /**
+   * Преобразует массив Event в массив безопасных DTO
+   */
+  private toSafeEventDtoArray(events: Event[], requestingUserId?: string): any[] {
+    if (!events || !Array.isArray(events)) {
+      return [];
+    }
+    return events.map(event => this.toSafeEventDto(event, requestingUserId));
+  }
+
+  async findById(id: string, requestingUserId?: string): Promise<any | null> {
+    const event = await this.eventRepository.findOne({
       where: { id },
       relations: ['creator', 'participants']
     });
+    return this.toSafeEventDto(event, requestingUserId);
   }
 
-  async update(id: string, eventData: UpdateEventDto): Promise<Event | null> {
+  async update(id: string, eventData: UpdateEventDto, requestingUserId?: string): Promise<any | null> {
     await this.eventRepository.update(id, eventData);
-    return await this.findById(id);
+    return await this.findById(id, requestingUserId);
   }
 
   async delete(id: string): Promise<void> {
@@ -222,7 +294,7 @@ export class EventService {
     await this.eventRepository.delete({ creatorId: userId });
   }
 
-  async addParticipant(eventId: string, userId: string): Promise<Event | null> {
+  async addParticipant(eventId: string, userId: string, requestingUserId?: string): Promise<any | null> {
     const event = await this.eventRepository.findOne({
       where: { id: eventId },
       relations: ['participants']
@@ -251,10 +323,12 @@ export class EventService {
 
     // Добавляем участника
     event.participants.push(user);
-    return await this.eventRepository.save(event);
+    const savedEvent = await this.eventRepository.save(event);
+    // Загружаем с relations для безопасного преобразования
+    return await this.findById(savedEvent.id, requestingUserId || userId);
   }
 
-  async removeParticipant(eventId: string, userId: string, removedByCreator: boolean = false): Promise<Event | null> {
+  async removeParticipant(eventId: string, userId: string, removedByCreator: boolean = false, requestingUserId?: string): Promise<any | null> {
     const event = await this.eventRepository.findOne({
       where: { id: eventId },
       relations: ['participants']
@@ -265,7 +339,7 @@ export class EventService {
     }
 
     event.participants = event.participants.filter(p => p.id !== userId);
-    const savedEvent = await this.eventRepository.save(event);
+    await this.eventRepository.save(event);
 
     // Создаем уведомление для удаленного участника
     try {
@@ -288,7 +362,8 @@ export class EventService {
       console.error('Ошибка отправки системного сообщения о выходе участника:', error);
     }
 
-    return savedEvent;
+    // Загружаем с relations для безопасного преобразования
+    return await this.findById(eventId, requestingUserId);
   }
 
   /**
@@ -304,14 +379,7 @@ export class EventService {
       throw new NotFoundException('Событие не найдено');
     }
 
-    return event.participants.map(participant => ({
-      id: participant.id,
-      email: participant.email,
-      firstName: participant.firstName,
-      lastName: participant.lastName,
-      displayName: participant.displayName,
-      avatar: participant.avatar,
-    }));
+    return toSafeUserDtoArray(event.participants);
   }
 }
 

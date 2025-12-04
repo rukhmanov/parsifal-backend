@@ -9,6 +9,7 @@ import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
 import { ChatService } from '../chat/chat.service';
+import { toSafeUserDto, toSafeUserDtoArray } from '../../common/dto/safe-user.dto';
 
 @Injectable()
 export class EventParticipationRequestService {
@@ -534,30 +535,36 @@ export class EventParticipationRequestService {
   async getReceivedInvitations(userId: string): Promise<any[]> {
     const requests = await this.requestRepository.find({
       where: { userId, type: 'invitation', status: 'pending' },
-      relations: ['event', 'event.creator'],
+      relations: ['event', 'event.creator', 'event.participants'],
       order: { createdAt: 'DESC' }
     });
 
-    return requests.map(request => ({
-      id: request.id,
-      eventId: request.event.id,
-      event: {
-        id: request.event.id,
-        title: request.event.title,
-        description: request.event.description,
-        dateTime: request.event.dateTime,
-        address: request.event.address,
-        creator: {
-          id: request.event.creator.id,
-          firstName: request.event.creator.firstName,
-          lastName: request.event.creator.lastName,
-          displayName: request.event.creator.displayName,
-          avatar: request.event.creator.avatar,
+    return requests.map(request => {
+      // Проверяем, является ли пользователь участником (для скрытия адреса)
+      const isParticipant = request.event.participants?.some(p => p.id === userId) || 
+                           request.event.creatorId === userId;
+      const shouldHideAddress = request.event.hideAddressForNonParticipants && !isParticipant;
+
+      return {
+        id: request.id,
+        eventId: request.event.id,
+        event: {
+          id: request.event.id,
+          title: request.event.title,
+          description: request.event.description,
+          dateTime: request.event.dateTime,
+          address: shouldHideAddress ? undefined : request.event.address,
+          addressComment: shouldHideAddress ? undefined : request.event.addressComment,
+          latitude: shouldHideAddress ? undefined : request.event.latitude,
+          longitude: shouldHideAddress ? undefined : request.event.longitude,
+          entrance: shouldHideAddress ? undefined : request.event.entrance,
+          floor: shouldHideAddress ? undefined : request.event.floor,
+          apartment: shouldHideAddress ? undefined : request.event.apartment,
+          hideAddressForNonParticipants: request.event.hideAddressForNonParticipants,
+          creator: toSafeUserDto(request.event.creator),
         }
-      },
-      comment: request.comment,
-      createdAt: request.createdAt
-    }));
+      };
+    });
   }
 
   /**
@@ -570,35 +577,37 @@ export class EventParticipationRequestService {
       order: { createdAt: 'DESC' }
     });
 
-    return requests.map(request => ({
-      id: request.id,
-      eventId: request.event.id,
-      status: request.status,
-      event: {
-        id: request.event.id,
-        title: request.event.title,
-        description: request.event.description,
-        dateTime: request.event.dateTime,
-        address: request.event.address,
-        maxParticipants: request.event.maxParticipants,
-        participants: request.event.participants?.map(p => ({
-          id: p.id,
-          firstName: p.firstName,
-          lastName: p.lastName,
-          displayName: p.displayName,
-          avatar: p.avatar,
-        })) || [],
-        creator: {
-          id: request.event.creator.id,
-          firstName: request.event.creator.firstName,
-          lastName: request.event.creator.lastName,
-          displayName: request.event.creator.displayName,
-          avatar: request.event.creator.avatar,
-        }
-      },
-      comment: request.comment,
-      createdAt: request.createdAt
-    }));
+    return requests.map(request => {
+      // Проверяем, является ли пользователь участником (для скрытия адреса)
+      const isParticipant = request.event.participants?.some(p => p.id === userId) || 
+                           request.event.creatorId === userId;
+      const shouldHideAddress = request.event.hideAddressForNonParticipants && !isParticipant;
+
+      return {
+        id: request.id,
+        eventId: request.event.id,
+        status: request.status,
+        event: {
+          id: request.event.id,
+          title: request.event.title,
+          description: request.event.description,
+          dateTime: request.event.dateTime,
+          address: shouldHideAddress ? undefined : request.event.address,
+          addressComment: shouldHideAddress ? undefined : request.event.addressComment,
+          latitude: shouldHideAddress ? undefined : request.event.latitude,
+          longitude: shouldHideAddress ? undefined : request.event.longitude,
+          entrance: shouldHideAddress ? undefined : request.event.entrance,
+          floor: shouldHideAddress ? undefined : request.event.floor,
+          apartment: shouldHideAddress ? undefined : request.event.apartment,
+          hideAddressForNonParticipants: request.event.hideAddressForNonParticipants,
+          maxParticipants: request.event.maxParticipants,
+          participants: toSafeUserDtoArray(request.event.participants || []),
+          creator: toSafeUserDto(request.event.creator),
+        },
+        comment: request.comment,
+        createdAt: request.createdAt
+      };
+    });
   }
 
   /**

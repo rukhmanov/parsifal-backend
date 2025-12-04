@@ -27,13 +27,17 @@ export class EventController {
   @Get()
   @ApiOperation({ summary: 'Получить список всех событий (только будущие) с фильтрацией и пагинацией' })
   @ApiResponse({ status: 200, description: 'Список событий получен успешно' })
-  async findAll(@FilterQuery() filterRequest?: FilterRequestDto): Promise<FilterResponseDto<Event> | Event[]> {
+  async findAll(
+    @FilterQuery() filterRequest?: FilterRequestDto,
+    @Request() req?: any
+  ): Promise<FilterResponseDto<any> | any[]> {
+    const userId = req?.user?.id;
     // Если есть параметры фильтрации или пагинации, используем метод с фильтрацией
     if (filterRequest && (filterRequest.pagination || filterRequest.filters || filterRequest.search || filterRequest.sort)) {
-      return this.eventService.findAllWithFilters(filterRequest);
+      return this.eventService.findAllWithFilters(filterRequest, userId);
     }
     // Иначе возвращаем все события без пагинации (для обратной совместимости)
-    const events = await this.eventService.findAll();
+    const events = await this.eventService.findAll(userId);
     return events;
   }
 
@@ -45,13 +49,13 @@ export class EventController {
   async getMyEvents(
     @Request() req: any,
     @Query('includePast') includePast?: string
-  ): Promise<Event[]> {
+  ): Promise<any[]> {
     const user = req.user;
     if (!user) {
       throw new ForbiddenException('Пользователь не авторизован');
     }
     const includePastBool = includePast === 'true';
-    return this.eventService.findUserEvents(user.id, includePastBool);
+    return this.eventService.findUserEvents(user.id, includePastBool, user.id);
   }
 
   @Get('participating-events')
@@ -62,20 +66,24 @@ export class EventController {
   async getParticipatingEvents(
     @Request() req: any,
     @Query('includePast') includePast?: string
-  ): Promise<Event[]> {
+  ): Promise<any[]> {
     const user = req.user;
     if (!user) {
       throw new ForbiddenException('Пользователь не авторизован');
     }
     const includePastBool = includePast === 'true';
-    return this.eventService.findEventsWhereUserIsParticipant(user.id, includePastBool);
+    return this.eventService.findEventsWhereUserIsParticipant(user.id, includePastBool, user.id);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Получить событие по ID' })
   @ApiResponse({ status: 200, description: 'Событие получено успешно' })
-  async findById(@Param('id') id: string): Promise<Event | null> {
-    return this.eventService.findById(id);
+  async findById(
+    @Param('id') id: string,
+    @Request() req?: any
+  ): Promise<any | null> {
+    const userId = req?.user?.id;
+    return this.eventService.findById(id, userId);
   }
 
   @Patch(':id')
@@ -103,7 +111,7 @@ export class EventController {
       throw new ForbiddenException('Недостаточно прав для обновления этого события');
     }
 
-    return this.eventService.update(id, eventData);
+    return this.eventService.update(id, eventData, user.id);
   }
 
   @Delete(':id')
@@ -178,7 +186,7 @@ export class EventController {
       throw new ForbiddenException('Нельзя удалить создателя события');
     }
 
-    return this.eventService.removeParticipant(eventId, userId, true);
+    return this.eventService.removeParticipant(eventId, userId, true, user.id);
   }
 
   @Delete(':id/participants')
@@ -186,12 +194,12 @@ export class EventController {
   @ApiResponse({ status: 200, description: 'Участник удален успешно' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  async removeParticipant(@Param('id') eventId: string, @Request() req: any): Promise<Event | null> {
+  async removeParticipant(@Param('id') eventId: string, @Request() req: any): Promise<any | null> {
     const user = req.user;
     if (!user) {
       throw new ForbiddenException('Пользователь не авторизован');
     }
-    return this.eventService.removeParticipant(eventId, user.id);
+    return this.eventService.removeParticipant(eventId, user.id, false, user.id);
   }
 
   @Get(':id/participants')

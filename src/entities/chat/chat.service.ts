@@ -12,6 +12,7 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { toSafeUserDtoArray } from '../../common/dto/safe-user.dto';
 
 @Injectable()
 export class ChatService {
@@ -171,11 +172,13 @@ export class ChatService {
       throw new ForbiddenException('У вас нет доступа к этому чату');
     }
 
-    // Преобразуем participants из ChatParticipant[] в User[]
+    // Преобразуем participants из ChatParticipant[] в безопасные User DTO
     if (chat.participants && Array.isArray(chat.participants)) {
-      (chat as any).participants = chat.participants
-        .map((p: ChatParticipant) => p.user)
-        .filter((user: User) => user !== null && user !== undefined);
+      (chat as any).participants = toSafeUserDtoArray(
+        chat.participants
+          .map((p: ChatParticipant) => p.user)
+          .filter((user: User) => user !== null && user !== undefined)
+      );
     }
 
     return chat;
@@ -195,11 +198,13 @@ export class ChatService {
       const participant = participantChats.find(p => p.chatId === chat.id && p.userId === userId);
       const lastReadAt = participant?.lastReadAt || null;
 
-      // Преобразуем participants из ChatParticipant[] в User[]
+      // Преобразуем participants из ChatParticipant[] в безопасные User DTO
       if (chat.participants && Array.isArray(chat.participants)) {
-        (chat as any).participants = chat.participants
-          .map((p: ChatParticipant) => p.user)
-          .filter((user: User) => user !== null && user !== undefined);
+        (chat as any).participants = toSafeUserDtoArray(
+          chat.participants
+            .map((p: ChatParticipant) => p.user)
+            .filter((user: User) => user !== null && user !== undefined)
+        );
       }
 
       // Получаем последнее сообщение для каждого чата

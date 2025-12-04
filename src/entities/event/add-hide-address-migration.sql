@@ -4,3 +4,4 @@
 -- Добавляем колонку hideAddressForNonParticipants как boolean с значением по умолчанию false
 ALTER TABLE events ADD COLUMN IF NOT EXISTS "hideAddressForNonParticipants" boolean NOT NULL DEFAULT false;
 
+
