@@ -625,14 +625,72 @@ export class EventParticipationRequestService {
   /**
    * Получить список друзей для отправки приглашений
    */
-  async getFriendsForInvitation(userId: string, skip: number = 0, take: number = 25): Promise<{ friends: any[]; total: number }> {
-    const [friends, total] = await this.friendRepository.findAndCount({
-      where: { userId },
-      relations: ['friend'],
-      order: { createdAt: 'DESC' },
-      skip,
-      take
-    });
+  async getFriendsForInvitation(userId: string, skip: number = 0, take: number = 25, eventId?: string, search?: string): Promise<{ friends: any[]; total: number }> {
+    // Используем QueryBuilder для поддержки поиска и фильтрации
+    const queryBuilder = this.friendRepository
+      .createQueryBuilder('friend')
+      .leftJoinAndSelect('friend.friend', 'user')
+      .where('friend.userId = :userId', { userId })
+      .select([
+        'friend.id',
+        'friend.createdAt',
+        'user.id',
+        'user.email',
+        'user.firstName',
+        'user.lastName',
+        'user.displayName',
+        'user.avatar'
+      ]);
+
+    // Применяем поиск, если он передан
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      queryBuilder.andWhere(
+        '(LOWER(user.firstName) LIKE LOWER(:search) OR LOWER(user.lastName) LIKE LOWER(:search) OR LOWER(user.displayName) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search))',
+        { search: searchTerm }
+      );
+    }
+
+    // Если передан eventId, исключаем уже приглашенных друзей и участников
+    if (eventId) {
+      // Получаем список ID уже приглашенных друзей (pending приглашения)
+      const pendingInvitations = await this.requestRepository.find({
+        where: { 
+          eventId, 
+          type: 'invitation', 
+          status: 'pending' 
+        },
+        select: ['userId']
+      });
+      const invitedUserIds = pendingInvitations.map(inv => inv.userId);
+
+      // Получаем список ID участников события
+      const event = await this.eventRepository.findOne({
+        where: { id: eventId },
+        relations: ['participants']
+      });
+      const participantIds = event?.participants?.map(p => p.id) || [];
+
+      // Объединяем исключенные ID
+      const excludedIds = [...invitedUserIds, ...participantIds];
+
+      // Исключаем уже приглашенных и участников из запроса
+      if (excludedIds.length > 0) {
+        queryBuilder.andWhere('user.id NOT IN (:...excludedIds)', { excludedIds });
+      }
+    }
+
+    // Сортировка
+    queryBuilder.orderBy('friend.createdAt', 'DESC');
+
+    // Получаем общее количество (до пагинации)
+    const total = await queryBuilder.getCount();
+
+    // Применяем пагинацию
+    queryBuilder.skip(skip).take(take);
+
+    // Выполняем запрос
+    const friends = await queryBuilder.getMany();
 
     return {
       friends: friends.map(friend => toSafeUserDto(friend.friend)),

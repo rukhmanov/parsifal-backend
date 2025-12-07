@@ -146,12 +146,15 @@ export class EventParticipationRequestController {
   async getFriendsForInvitation(
     @Request() req: any,
     @Query('skip') skip?: number,
-    @Query('take') take?: number
+    @Query('take') take?: number,
+    @Query('eventId') eventId?: string,
+    @Query('search') search?: string
   ) {
     const userId = req.user.id;
     const skipValue = skip ? parseInt(skip.toString(), 10) : 0;
     const takeValue = take ? parseInt(take.toString(), 10) : 25;
-    return await this.requestService.getFriendsForInvitation(userId, skipValue, takeValue);
+    const searchValue = search ? search.trim() : undefined;
+    return await this.requestService.getFriendsForInvitation(userId, skipValue, takeValue, eventId, searchValue);
   }
 }
 
