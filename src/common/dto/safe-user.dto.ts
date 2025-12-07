@@ -11,6 +11,9 @@ export interface SafeUserDto {
   photos?: string[];
   birthDate?: Date;
   gender?: 'male' | 'female';
+  about?: string;
+  work?: string;
+  interests?: string[];
 }
 
 /**
@@ -30,6 +33,9 @@ export function toSafeUserDto(user: any): SafeUserDto {
     photos: user.photos,
     birthDate: user.birthDate,
     gender: user.gender,
+    about: user.about,
+    work: user.work,
+    interests: user.interests,
   };
 }
 
@@ -56,6 +62,9 @@ export interface AdminUserDto {
   photos?: string[];
   birthDate?: Date;
   gender?: 'male' | 'female';
+  about?: string;
+  work?: string;
+  interests?: string[];
   authProvider: 'google' | 'yandex' | 'local';
   providerId: string;
   isActive: boolean;
@@ -94,6 +103,9 @@ export function toAdminUserDto(user: any): AdminUserDto {
     photos: safeUser.photos,
     birthDate: safeUser.birthDate,
     gender: safeUser.gender,
+    about: safeUser.about,
+    work: safeUser.work,
+    interests: safeUser.interests,
     authProvider: safeUser.authProvider,
     providerId: safeUser.providerId,
     isActive: safeUser.isActive,

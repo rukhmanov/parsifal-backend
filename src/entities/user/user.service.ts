@@ -85,7 +85,8 @@ export class UserService {
   async findById(id: string): Promise<User | null> {
     const user = await this.userRepository.findOne({ 
       where: { id },
-      relations: ['role']
+      relations: ['role'],
+      cache: false // Отключаем кэш для получения актуальных данных
     });
     
     // Если у пользователя роль администратора, подставляем захардкоженную роль

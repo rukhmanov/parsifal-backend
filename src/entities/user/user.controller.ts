@@ -31,6 +31,9 @@ export interface UpdateUserDto {
   photos?: string[];
   gender?: 'male' | 'female';
   birthDate?: Date | string;
+  about?: string;
+  work?: string;
+  interests?: string[];
   roleId?: string;
   isActive?: boolean;
   termsAccepted?: boolean;
@@ -297,7 +300,7 @@ export class UserController {
       throw new ForbiddenException('Пользователь не найден');
     }
 
-    const allowedFields = ['firstName', 'lastName'];
+    const allowedFields = ['firstName', 'lastName', 'about', 'work', 'interests'];
     const restrictedFields = ['email', 'roleId', 'isActive', 'authProvider', 'providerId'];
 
     // Добавляем gender и birthDate в разрешенные поля, если они еще не установлены
@@ -376,7 +379,16 @@ export class UserController {
         const currentValue = currentUser[field as keyof User];
         const newValue = (dataWithoutDisplayName as any)[field];
         
-        if (currentValue !== newValue) {
+        // Специальная обработка для массива interests
+        if (field === 'interests') {
+          const currentInterests = Array.isArray(currentValue) ? currentValue : (currentValue ? [currentValue] : []);
+          const newInterests = Array.isArray(newValue) ? newValue : (newValue ? [newValue] : []);
+          const currentStr = currentInterests.sort().join(',');
+          const newStr = newInterests.sort().join(',');
+          if (currentStr !== newStr) {
+            changedFields.push(field);
+          }
+        } else if (currentValue !== newValue) {
           changedFields.push(field);
         }
       }
@@ -394,6 +406,17 @@ export class UserController {
     }
     if ('lastName' in dataWithoutDisplayName) {
       updateData.lastName = dataWithoutDisplayName.lastName;
+    }
+    if ('about' in dataWithoutDisplayName) {
+      updateData.about = dataWithoutDisplayName.about && dataWithoutDisplayName.about.trim() !== '' ? dataWithoutDisplayName.about : undefined;
+    }
+    if ('work' in dataWithoutDisplayName) {
+      updateData.work = dataWithoutDisplayName.work && dataWithoutDisplayName.work.trim() !== '' ? dataWithoutDisplayName.work : undefined;
+    }
+    if ('interests' in dataWithoutDisplayName) {
+      // Преобразуем пустой массив в undefined для TypeORM simple-array
+      const interestsValue = dataWithoutDisplayName.interests;
+      updateData.interests = (Array.isArray(interestsValue) && interestsValue.length > 0) ? interestsValue : undefined;
     }
     
     // Добавляем gender и birthDate, если они разрешены (еще не установлены)

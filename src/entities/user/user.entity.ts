@@ -31,6 +31,15 @@ export class User {
   @Column({ type: 'varchar', length: 20, nullable: true })
   gender?: 'male' | 'female'; // Пол пользователя
 
+  @Column({ type: 'text', nullable: true })
+  about?: string; // Расскажите о себе
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  work?: string; // Работа
+
+  @Column({ type: 'simple-array', nullable: true })
+  interests?: string[]; // Интересы (массив строк)
+
   @Column({ nullable: true })
   password?: string; // Только для локальных пользователей
 
