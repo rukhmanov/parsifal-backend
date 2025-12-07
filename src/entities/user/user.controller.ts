@@ -8,7 +8,7 @@ import { S3Service } from '../../common/services/s3.service';
 import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { getAllPermissionCodes } from '../../common/constants/permissions.constants';
-import { toSafeUserDto } from '../../common/dto/safe-user.dto';
+import { toSafeUserDto, toAdminUserDto } from '../../common/dto/safe-user.dto';
 
 export interface CreateUserDto {
   email: string;
@@ -59,10 +59,37 @@ export class UserController {
   @Get(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   // @RequirePermissions(['users.view'])
-  async findById(@Param('id') id: string): Promise<any | null> {
+  async findById(
+    @Param('id') id: string,
+    @Request() req?: any
+  ): Promise<any | null> {
     const normalizedId = this.normalizeUserId(id);
     const user = await this.userService.findById(normalizedId);
-    return user ? toSafeUserDto(user) : null;
+    
+    if (!user) {
+      return null;
+    }
+    
+    // Проверяем права текущего пользователя
+    const currentUser = req?.user;
+    if (currentUser) {
+      let userPermissionCodes = currentUser.role?.permissionCodes || [];
+      
+      // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
+      if (currentUser.role?.name === 'Администратор' && userPermissionCodes.length === 0) {
+        userPermissionCodes = getAllPermissionCodes();
+      }
+      
+      const hasViewPermission = userPermissionCodes.includes('users.view');
+      
+      // Если есть права на просмотр пользователей, возвращаем данные для админов (без чувствительных полей)
+      if (hasViewPermission) {
+        return toAdminUserDto(user);
+      }
+    }
+    
+    // Иначе возвращаем только безопасные данные
+    return toSafeUserDto(user);
   }
 
   @Post()
