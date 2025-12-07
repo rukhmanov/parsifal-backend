@@ -531,7 +531,6 @@ export class EventParticipationRequestService {
       userId: request.user.id,
       user: {
         id: request.user.id,
-        email: request.user.email,
         firstName: request.user.firstName,
         lastName: request.user.lastName,
         displayName: request.user.displayName,
