@@ -453,7 +453,8 @@ export class FriendRequestService {
         'user.firstName',
         'user.lastName',
         'user.displayName',
-        'user.avatar'
+        'user.avatar',
+        'user.gender'
       ]);
 
     // Применяем фильтрацию к связанной таблице user
@@ -491,6 +492,14 @@ export class FriendRequestService {
               queryBuilder.andWhere('LOWER(user.email) LIKE LOWER(:email)', {
                 email: `%${value}%`
               });
+              break;
+            case 'gender':
+              // Игнорируем значение 'all'
+              if (value !== 'all') {
+                queryBuilder.andWhere('user.gender = :gender', {
+                  gender: value
+                });
+              }
               break;
             case 'createdAt':
               if (value.from) {
@@ -562,7 +571,8 @@ export class FriendRequestService {
         'user.firstName',
         'user.lastName',
         'user.displayName',
-        'user.avatar'
+        'user.avatar',
+        'user.gender'
       ]);
 
     // Применяем фильтрацию
@@ -598,6 +608,14 @@ export class FriendRequestService {
               queryBuilder.andWhere('LOWER(user.email) LIKE LOWER(:email)', {
                 email: `%${value}%`
               });
+              break;
+            case 'gender':
+              // Игнорируем значение 'all'
+              if (value !== 'all') {
+                queryBuilder.andWhere('user.gender = :gender', {
+                  gender: value
+                });
+              }
               break;
             case 'createdAt':
               if (value.from) {
@@ -669,7 +687,8 @@ export class FriendRequestService {
         'user.firstName',
         'user.lastName',
         'user.displayName',
-        'user.avatar'
+        'user.avatar',
+        'user.gender'
       ]);
 
     // Применяем фильтрацию
@@ -705,6 +724,14 @@ export class FriendRequestService {
               queryBuilder.andWhere('LOWER(user.email) LIKE LOWER(:email)', {
                 email: `%${value}%`
               });
+              break;
+            case 'gender':
+              // Игнорируем значение 'all'
+              if (value !== 'all') {
+                queryBuilder.andWhere('user.gender = :gender', {
+                  gender: value
+                });
+              }
               break;
             case 'createdAt':
               if (value.from) {
