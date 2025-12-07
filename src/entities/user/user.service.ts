@@ -23,6 +23,7 @@ export class UserService {
     { key: 'firstName', type: 'string' as const, searchable: true, sortable: true },
     { key: 'lastName', type: 'string' as const, searchable: true, sortable: true },
     { key: 'displayName', type: 'string' as const, searchable: true, sortable: true },
+    { key: 'gender', type: 'status-select' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'roleId', type: 'status-select' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'isActive', type: 'boolean' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'authProvider', type: 'status-select' as const, searchable: false, sortable: true, isStatusFilter: true },

@@ -8,6 +8,7 @@ import { User } from '../user/user.entity';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/notification.entity';
 import { AppWebSocketGateway } from '../websocket/websocket.gateway';
+import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
 
 @Injectable()
 export class FriendRequestService {
@@ -363,6 +364,399 @@ export class FriendRequestService {
       user: toSafeUserDto(friend.friend),
       createdAt: friend.createdAt
     }));
+  }
+
+  /**
+   * Получить список друзей с пагинацией
+   */
+  async getFriendsPaginated(userId: string, skip: number = 0, take: number = 20): Promise<{ data: any[]; total: number }> {
+    const [friends, total] = await this.friendRepository.findAndCount({
+      where: { userId },
+      relations: ['friend'],
+      order: { createdAt: 'DESC' },
+      skip,
+      take
+    });
+
+    return {
+      data: friends.map(friend => ({
+        id: friend.id,
+        userId: friend.friend.id,
+        user: toSafeUserDto(friend.friend),
+        createdAt: friend.createdAt
+      })),
+      total
+    };
+  }
+
+  /**
+   * Получить список исходящих заявок с пагинацией
+   */
+  async getSentFriendRequestsPaginated(userId: string, skip: number = 0, take: number = 20): Promise<{ data: any[]; total: number }> {
+    const [requests, total] = await this.friendRequestRepository.findAndCount({
+      where: { senderId: userId },
+      relations: ['receiver'],
+      order: { createdAt: 'DESC' },
+      skip,
+      take
+    });
+
+    return {
+      data: requests.map(request => ({
+        id: request.id,
+        userId: request.receiver.id,
+        user: toSafeUserDto(request.receiver),
+        comment: request.comment,
+        createdAt: request.createdAt
+      })),
+      total
+    };
+  }
+
+  /**
+   * Получить список входящих заявок с пагинацией
+   */
+  async getReceivedFriendRequestsPaginated(userId: string, skip: number = 0, take: number = 20): Promise<{ data: any[]; total: number }> {
+    const [requests, total] = await this.friendRequestRepository.findAndCount({
+      where: { receiverId: userId },
+      relations: ['sender'],
+      order: { createdAt: 'DESC' },
+      skip,
+      take
+    });
+
+    return {
+      data: requests.map(request => ({
+        id: request.id,
+        userId: request.sender.id,
+        user: toSafeUserDto(request.sender),
+        comment: request.comment,
+        createdAt: request.createdAt
+      })),
+      total
+    };
+  }
+
+  /**
+   * Получить список друзей с фильтрацией
+   */
+  async getFriendsWithFilters(userId: string, request: FilterRequestDto): Promise<FilterResponseDto<any>> {
+    const queryBuilder = this.friendRepository
+      .createQueryBuilder('friend')
+      .leftJoinAndSelect('friend.friend', 'user')
+      .where('friend.userId = :userId', { userId })
+      .select([
+        'friend.id',
+        'friend.createdAt',
+        'user.id',
+        'user.email',
+        'user.firstName',
+        'user.lastName',
+        'user.displayName',
+        'user.avatar'
+      ]);
+
+    // Применяем фильтрацию к связанной таблице user
+    // Создаем модифицированный запрос для поиска по полям пользователя
+    if (request.search) {
+      const searchTerm = `%${request.search}%`;
+      queryBuilder.andWhere(
+        '(LOWER(user.firstName) LIKE LOWER(:search) OR LOWER(user.lastName) LIKE LOWER(:search) OR LOWER(user.displayName) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search))',
+        { search: searchTerm }
+      );
+    }
+
+    // Фильтры по полям пользователя
+    if (request.filters) {
+      Object.keys(request.filters).forEach(key => {
+        const value = request.filters![key];
+        if (value !== null && value !== undefined && value !== '') {
+          switch (key) {
+            case 'firstName':
+              queryBuilder.andWhere('LOWER(user.firstName) LIKE LOWER(:firstName)', {
+                firstName: `%${value}%`
+              });
+              break;
+            case 'lastName':
+              queryBuilder.andWhere('LOWER(user.lastName) LIKE LOWER(:lastName)', {
+                lastName: `%${value}%`
+              });
+              break;
+            case 'displayName':
+              queryBuilder.andWhere('LOWER(user.displayName) LIKE LOWER(:displayName)', {
+                displayName: `%${value}%`
+              });
+              break;
+            case 'email':
+              queryBuilder.andWhere('LOWER(user.email) LIKE LOWER(:email)', {
+                email: `%${value}%`
+              });
+              break;
+            case 'createdAt':
+              if (value.from) {
+                queryBuilder.andWhere('friend.createdAt >= :fromDate', {
+                  fromDate: new Date(value.from)
+                });
+              }
+              if (value.to) {
+                const toDate = new Date(value.to);
+                toDate.setHours(23, 59, 59, 999);
+                queryBuilder.andWhere('friend.createdAt <= :toDate', {
+                  toDate
+                });
+              }
+              break;
+          }
+        }
+      });
+    }
+
+    // Сортировка
+    if (request.sort) {
+      const sortField = request.sort.field;
+      const sortDirection = request.sort.direction.toUpperCase();
+      
+      if (['firstName', 'lastName', 'displayName', 'email'].includes(sortField)) {
+        queryBuilder.orderBy(`user.${sortField}`, sortDirection as 'ASC' | 'DESC');
+      } else if (sortField === 'createdAt') {
+        queryBuilder.orderBy('friend.createdAt', sortDirection as 'ASC' | 'DESC');
+      }
+    } else {
+      queryBuilder.orderBy('friend.createdAt', 'DESC');
+    }
+
+    // Пагинация
+    const page = request.pagination?.page || 1;
+    const pageSize = request.pagination?.pageSize || 20;
+    const skip = (page - 1) * pageSize;
+
+    queryBuilder.skip(skip).take(pageSize);
+
+    // Получаем результаты
+    const [friends, total] = await queryBuilder.getManyAndCount();
+
+    const data = friends.map(friend => ({
+      id: friend.id,
+      userId: friend.friend.id,
+      user: toSafeUserDto(friend.friend),
+      createdAt: friend.createdAt
+    }));
+
+    return new FilterResponseDto(data, total, page, pageSize);
+  }
+
+  /**
+   * Получить список исходящих заявок с фильтрацией
+   */
+  async getSentFriendRequestsWithFilters(userId: string, request: FilterRequestDto): Promise<FilterResponseDto<any>> {
+    const queryBuilder = this.friendRequestRepository
+      .createQueryBuilder('request')
+      .leftJoinAndSelect('request.receiver', 'user')
+      .where('request.senderId = :userId', { userId })
+      .select([
+        'request.id',
+        'request.comment',
+        'request.createdAt',
+        'user.id',
+        'user.email',
+        'user.firstName',
+        'user.lastName',
+        'user.displayName',
+        'user.avatar'
+      ]);
+
+    // Применяем фильтрацию
+    if (request.search) {
+      const searchTerm = `%${request.search}%`;
+      queryBuilder.andWhere(
+        '(LOWER(user.firstName) LIKE LOWER(:search) OR LOWER(user.lastName) LIKE LOWER(:search) OR LOWER(user.displayName) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search))',
+        { search: searchTerm }
+      );
+    }
+
+    if (request.filters) {
+      Object.keys(request.filters).forEach(key => {
+        const value = request.filters![key];
+        if (value !== null && value !== undefined && value !== '') {
+          switch (key) {
+            case 'firstName':
+              queryBuilder.andWhere('LOWER(user.firstName) LIKE LOWER(:firstName)', {
+                firstName: `%${value}%`
+              });
+              break;
+            case 'lastName':
+              queryBuilder.andWhere('LOWER(user.lastName) LIKE LOWER(:lastName)', {
+                lastName: `%${value}%`
+              });
+              break;
+            case 'displayName':
+              queryBuilder.andWhere('LOWER(user.displayName) LIKE LOWER(:displayName)', {
+                displayName: `%${value}%`
+              });
+              break;
+            case 'email':
+              queryBuilder.andWhere('LOWER(user.email) LIKE LOWER(:email)', {
+                email: `%${value}%`
+              });
+              break;
+            case 'createdAt':
+              if (value.from) {
+                queryBuilder.andWhere('request.createdAt >= :fromDate', {
+                  fromDate: new Date(value.from)
+                });
+              }
+              if (value.to) {
+                const toDate = new Date(value.to);
+                toDate.setHours(23, 59, 59, 999);
+                queryBuilder.andWhere('request.createdAt <= :toDate', {
+                  toDate
+                });
+              }
+              break;
+          }
+        }
+      });
+    }
+
+    // Сортировка
+    if (request.sort) {
+      const sortField = request.sort.field;
+      const sortDirection = request.sort.direction.toUpperCase();
+      
+      if (['firstName', 'lastName', 'displayName', 'email'].includes(sortField)) {
+        queryBuilder.orderBy(`user.${sortField}`, sortDirection as 'ASC' | 'DESC');
+      } else if (sortField === 'createdAt') {
+        queryBuilder.orderBy('request.createdAt', sortDirection as 'ASC' | 'DESC');
+      }
+    } else {
+      queryBuilder.orderBy('request.createdAt', 'DESC');
+    }
+
+    // Пагинация
+    const page = request.pagination?.page || 1;
+    const pageSize = request.pagination?.pageSize || 20;
+    const skip = (page - 1) * pageSize;
+
+    queryBuilder.skip(skip).take(pageSize);
+
+    const [requests, total] = await queryBuilder.getManyAndCount();
+
+    const data = requests.map(req => ({
+      id: req.id,
+      userId: req.receiver.id,
+      user: toSafeUserDto(req.receiver),
+      comment: req.comment,
+      createdAt: req.createdAt
+    }));
+
+    return new FilterResponseDto(data, total, page, pageSize);
+  }
+
+  /**
+   * Получить список входящих заявок с фильтрацией
+   */
+  async getReceivedFriendRequestsWithFilters(userId: string, request: FilterRequestDto): Promise<FilterResponseDto<any>> {
+    const queryBuilder = this.friendRequestRepository
+      .createQueryBuilder('request')
+      .leftJoinAndSelect('request.sender', 'user')
+      .where('request.receiverId = :userId', { userId })
+      .select([
+        'request.id',
+        'request.comment',
+        'request.createdAt',
+        'user.id',
+        'user.email',
+        'user.firstName',
+        'user.lastName',
+        'user.displayName',
+        'user.avatar'
+      ]);
+
+    // Применяем фильтрацию
+    if (request.search) {
+      const searchTerm = `%${request.search}%`;
+      queryBuilder.andWhere(
+        '(LOWER(user.firstName) LIKE LOWER(:search) OR LOWER(user.lastName) LIKE LOWER(:search) OR LOWER(user.displayName) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search))',
+        { search: searchTerm }
+      );
+    }
+
+    if (request.filters) {
+      Object.keys(request.filters).forEach(key => {
+        const value = request.filters![key];
+        if (value !== null && value !== undefined && value !== '') {
+          switch (key) {
+            case 'firstName':
+              queryBuilder.andWhere('LOWER(user.firstName) LIKE LOWER(:firstName)', {
+                firstName: `%${value}%`
+              });
+              break;
+            case 'lastName':
+              queryBuilder.andWhere('LOWER(user.lastName) LIKE LOWER(:lastName)', {
+                lastName: `%${value}%`
+              });
+              break;
+            case 'displayName':
+              queryBuilder.andWhere('LOWER(user.displayName) LIKE LOWER(:displayName)', {
+                displayName: `%${value}%`
+              });
+              break;
+            case 'email':
+              queryBuilder.andWhere('LOWER(user.email) LIKE LOWER(:email)', {
+                email: `%${value}%`
+              });
+              break;
+            case 'createdAt':
+              if (value.from) {
+                queryBuilder.andWhere('request.createdAt >= :fromDate', {
+                  fromDate: new Date(value.from)
+                });
+              }
+              if (value.to) {
+                const toDate = new Date(value.to);
+                toDate.setHours(23, 59, 59, 999);
+                queryBuilder.andWhere('request.createdAt <= :toDate', {
+                  toDate
+                });
+              }
+              break;
+          }
+        }
+      });
+    }
+
+    // Сортировка
+    if (request.sort) {
+      const sortField = request.sort.field;
+      const sortDirection = request.sort.direction.toUpperCase();
+      
+      if (['firstName', 'lastName', 'displayName', 'email'].includes(sortField)) {
+        queryBuilder.orderBy(`user.${sortField}`, sortDirection as 'ASC' | 'DESC');
+      } else if (sortField === 'createdAt') {
+        queryBuilder.orderBy('request.createdAt', sortDirection as 'ASC' | 'DESC');
+      }
+    } else {
+      queryBuilder.orderBy('request.createdAt', 'DESC');
+    }
+
+    // Пагинация
+    const page = request.pagination?.page || 1;
+    const pageSize = request.pagination?.pageSize || 20;
+    const skip = (page - 1) * pageSize;
+
+    queryBuilder.skip(skip).take(pageSize);
+
+    const [requests, total] = await queryBuilder.getManyAndCount();
+
+    const data = requests.map(req => ({
+      id: req.id,
+      userId: req.sender.id,
+      user: toSafeUserDto(req.sender),
+      comment: req.comment,
+      createdAt: req.createdAt
+    }));
+
+    return new FilterResponseDto(data, total, page, pageSize);
   }
 }
 

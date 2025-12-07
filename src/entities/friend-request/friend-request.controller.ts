@@ -2,6 +2,8 @@ import { Controller, Post, Delete, Get, Param, Body, UseGuards, Request, HttpCod
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { FriendRequestService } from './friend-request.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { FilterRequestDto } from '../../common/dto/filter.dto';
+import { FilterBody } from '../../common/decorators/filter.decorator';
 
 @ApiTags('friend-requests')
 @Controller('friend-requests')
@@ -46,7 +48,17 @@ export class FriendRequestController {
   @ApiResponse({ status: 200, description: 'Список друзей получен успешно' })
   async getFriends(@Request() req: any) {
     const userId = req.user.id;
-    return await this.friendRequestService.getFriends(userId);
+    const skip = parseInt(req.query.skip) || 0;
+    const take = parseInt(req.query.take) || 20;
+    
+    // Если указаны параметры пагинации, используем метод с пагинацией
+    if (req.query.skip !== undefined || req.query.take !== undefined) {
+      return await this.friendRequestService.getFriendsPaginated(userId, skip, take);
+    }
+    
+    // Иначе возвращаем все данные (для обратной совместимости)
+    const friends = await this.friendRequestService.getFriends(userId);
+    return { data: friends, total: friends.length };
   }
 
   @Get('sent')
@@ -54,7 +66,17 @@ export class FriendRequestController {
   @ApiResponse({ status: 200, description: 'Список исходящих заявок получен успешно' })
   async getSentFriendRequests(@Request() req: any) {
     const userId = req.user.id;
-    return await this.friendRequestService.getSentFriendRequestsWithUsers(userId);
+    const skip = parseInt(req.query.skip) || 0;
+    const take = parseInt(req.query.take) || 20;
+    
+    // Если указаны параметры пагинации, используем метод с пагинацией
+    if (req.query.skip !== undefined || req.query.take !== undefined) {
+      return await this.friendRequestService.getSentFriendRequestsPaginated(userId, skip, take);
+    }
+    
+    // Иначе возвращаем все данные (для обратной совместимости)
+    const requests = await this.friendRequestService.getSentFriendRequestsWithUsers(userId);
+    return { data: requests, total: requests.length };
   }
 
   @Get('received')
@@ -62,7 +84,17 @@ export class FriendRequestController {
   @ApiResponse({ status: 200, description: 'Список входящих заявок получен успешно' })
   async getReceivedFriendRequests(@Request() req: any) {
     const userId = req.user.id;
-    return await this.friendRequestService.getReceivedFriendRequestsWithUsers(userId);
+    const skip = parseInt(req.query.skip) || 0;
+    const take = parseInt(req.query.take) || 20;
+    
+    // Если указаны параметры пагинации, используем метод с пагинацией
+    if (req.query.skip !== undefined || req.query.take !== undefined) {
+      return await this.friendRequestService.getReceivedFriendRequestsPaginated(userId, skip, take);
+    }
+    
+    // Иначе возвращаем все данные (для обратной совместимости)
+    const requests = await this.friendRequestService.getReceivedFriendRequestsWithUsers(userId);
+    return { data: requests, total: requests.length };
   }
 
   @Post('accept/:senderId')
@@ -104,6 +136,39 @@ export class FriendRequestController {
     const userId = req.user.id;
     await this.friendRequestService.removeFriend(userId, friendId);
     return { message: 'Друг удален' };
+  }
+
+  @Post('friends/search')
+  @ApiOperation({ summary: 'Получить список друзей с фильтрацией' })
+  @ApiResponse({ status: 200, description: 'Список друзей получен успешно' })
+  async searchFriends(
+    @Request() req: any,
+    @FilterBody() filterRequest: FilterRequestDto
+  ) {
+    const userId = req.user.id;
+    return await this.friendRequestService.getFriendsWithFilters(userId, filterRequest);
+  }
+
+  @Post('sent/search')
+  @ApiOperation({ summary: 'Получить список исходящих заявок с фильтрацией' })
+  @ApiResponse({ status: 200, description: 'Список исходящих заявок получен успешно' })
+  async searchSentFriendRequests(
+    @Request() req: any,
+    @FilterBody() filterRequest: FilterRequestDto
+  ) {
+    const userId = req.user.id;
+    return await this.friendRequestService.getSentFriendRequestsWithFilters(userId, filterRequest);
+  }
+
+  @Post('received/search')
+  @ApiOperation({ summary: 'Получить список входящих заявок с фильтрацией' })
+  @ApiResponse({ status: 200, description: 'Список входящих заявок получен успешно' })
+  async searchReceivedFriendRequests(
+    @Request() req: any,
+    @FilterBody() filterRequest: FilterRequestDto
+  ) {
+    const userId = req.user.id;
+    return await this.friendRequestService.getReceivedFriendRequestsWithFilters(userId, filterRequest);
   }
 }
 
