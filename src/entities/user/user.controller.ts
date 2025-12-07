@@ -85,13 +85,16 @@ export class UserController {
       
       const hasViewPermission = userPermissionCodes.includes('users.view');
       
-      // Если есть права на просмотр пользователей, возвращаем данные для админов (без чувствительных полей)
-      if (hasViewPermission) {
+      // Проверяем, есть ли параметр admin=true в запросе для явного запроса админских данных
+      const isAdminRequest = req?.query?.admin === 'true';
+      
+      // Если есть права на просмотр пользователей И явно запрошены админские данные, возвращаем AdminUserDto
+      if (hasViewPermission && isAdminRequest) {
         return toAdminUserDto(user);
       }
     }
     
-    // Иначе возвращаем только безопасные данные
+    // Для обычного просмотра профиля всегда возвращаем только безопасные данные
     return toSafeUserDto(user);
   }
 
