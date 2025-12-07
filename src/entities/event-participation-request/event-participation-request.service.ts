@@ -264,6 +264,19 @@ export class EventParticipationRequestService {
       event.participants.push(request.user);
       await this.eventRepository.save(event);
 
+      // Если существует чат события, добавляем пользователя в чат
+      try {
+        if (this.chatService) {
+          const eventChat = await this.chatService.findEventChatByEventId(request.eventId);
+          if (eventChat) {
+            await this.chatService.addParticipantsToChat(eventChat.id, [request.userId]);
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка добавления участника в чат события:', error);
+        // Не прерываем выполнение, если не удалось добавить в чат
+      }
+
       // Отправляем системное сообщение в чат события о вступлении участника
       try {
         if (this.chatService) {

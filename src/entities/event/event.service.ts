@@ -324,6 +324,20 @@ export class EventService {
     // Добавляем участника
     event.participants.push(user);
     const savedEvent = await this.eventRepository.save(event);
+
+    // Если существует чат события, добавляем пользователя в чат
+    try {
+      if (this.chatService) {
+        const eventChat = await this.chatService.findEventChatByEventId(eventId);
+        if (eventChat) {
+          await this.chatService.addParticipantsToChat(eventChat.id, [userId]);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка добавления участника в чат события:', error);
+      // Не прерываем выполнение, если не удалось добавить в чат
+    }
+
     // Загружаем с relations для безопасного преобразования
     return await this.findById(savedEvent.id, requestingUserId || userId);
   }
@@ -340,6 +354,20 @@ export class EventService {
 
     event.participants = event.participants.filter(p => p.id !== userId);
     await this.eventRepository.save(event);
+
+    // Удаляем участника из чата события, если чат существует
+    try {
+      if (this.chatService) {
+        const eventChat = await this.chatService.findEventChatByEventId(eventId);
+        if (eventChat) {
+          // Удаляем участника из чата
+          await this.chatService.removeParticipantFromChat(eventChat.id, userId);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка удаления участника из чата события:', error);
+      // Не прерываем выполнение, если не удалось удалить из чата
+    }
 
     // Создаем уведомление для удаленного участника
     try {

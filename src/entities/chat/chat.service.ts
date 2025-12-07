@@ -139,7 +139,7 @@ export class ChatService {
     return await this.findById(savedChat.id, creatorId);
   }
 
-  private async addParticipantsToChat(chatId: string, userIds: string[]): Promise<void> {
+  async addParticipantsToChat(chatId: string, userIds: string[]): Promise<void> {
     const existingParticipants = await this.chatParticipantRepository.find({
       where: { chatId, userId: In(userIds) },
     });
@@ -179,10 +179,51 @@ export class ChatService {
       throw new NotFoundException('Чат не найден');
     }
 
-    // Проверяем, является ли пользователь участником чата
-    const isParticipant = chat.participants.some(p => p.userId === userId);
-    if (!isParticipant) {
-      throw new ForbiddenException('У вас нет доступа к этому чату');
+    // Для чатов событий проверяем, является ли пользователь участником события
+    if (chat.type === ChatType.EVENT && chat.eventId) {
+      const event = await this.eventRepository.findOne({
+        where: { id: chat.eventId },
+        relations: ['participants'],
+      });
+
+      if (!event) {
+        throw new NotFoundException('Событие не найдено');
+      }
+
+      // Проверяем, является ли пользователь участником события или создателем
+      const isEventParticipant = event.participants?.some(p => p.id === userId) || event.creatorId === userId;
+      
+      if (!isEventParticipant) {
+        throw new ForbiddenException('У вас нет доступа к этому чату');
+      }
+
+      // Если пользователь является участником события, но не чата, добавляем его в чат
+      const isChatParticipant = chat.participants.some(p => p.userId === userId);
+      if (!isChatParticipant) {
+        await this.addParticipantsToChat(chat.id, [userId]);
+        // Перезагружаем чат с обновленными участниками
+        const updatedChat = await this.chatRepository.findOne({
+          where: { id: chatId },
+          relations: ['event', 'participants', 'participants.user'],
+        });
+        if (updatedChat) {
+          // Преобразуем participants из ChatParticipant[] в безопасные User DTO
+          if (updatedChat.participants && Array.isArray(updatedChat.participants)) {
+            (updatedChat as any).participants = toSafeUserDtoArray(
+              updatedChat.participants
+                .map((p: ChatParticipant) => p.user)
+                .filter((user: User) => user !== null && user !== undefined)
+            );
+          }
+          return updatedChat;
+        }
+      }
+    } else {
+      // Для личных чатов проверяем, является ли пользователь участником чата
+      const isParticipant = chat.participants.some(p => p.userId === userId);
+      if (!isParticipant) {
+        throw new ForbiddenException('У вас нет доступа к этому чату');
+      }
     }
 
     // Преобразуем participants из ChatParticipant[] в безопасные User DTO
@@ -203,7 +244,32 @@ export class ChatService {
       relations: ['chat', 'chat.event', 'chat.participants', 'chat.participants.user'],
     });
 
-    const chats = participantChats.map(p => p.chat);
+    let chats = participantChats.map(p => p.chat);
+
+    // Фильтруем чаты событий: удаляем чаты, где пользователь больше не является участником события
+    const validChats: Chat[] = [];
+    for (const chat of chats) {
+      if (chat.type === ChatType.EVENT && chat.eventId) {
+        // Для чатов событий проверяем, является ли пользователь участником события
+        const event = await this.eventRepository.findOne({
+          where: { id: chat.eventId },
+          relations: ['participants'],
+        });
+
+        if (event) {
+          const isEventParticipant = event.participants?.some(p => p.id === userId) || event.creatorId === userId;
+          if (!isEventParticipant) {
+            // Пользователь больше не является участником события, пропускаем этот чат
+            continue;
+          }
+        } else {
+          // Событие не найдено, пропускаем чат
+          continue;
+        }
+      }
+      validChats.push(chat);
+    }
+    chats = validChats;
 
     // Преобразуем участников из ChatParticipant в User для каждого чата
     for (const chat of chats) {
@@ -263,6 +329,16 @@ export class ChatService {
     return chats;
   }
 
+  /**
+   * Найти чат события по eventId без проверки прав доступа
+   * Используется для внутренних операций (например, добавление участника события в чат)
+   */
+  async findEventChatByEventId(eventId: string): Promise<Chat | null> {
+    return await this.chatRepository.findOne({
+      where: { type: ChatType.EVENT, eventId },
+    });
+  }
+
   async getEventChat(eventId: string, userId: string): Promise<Chat | null> {
     const chat = await this.chatRepository.findOne({
       where: { type: ChatType.EVENT, eventId },
@@ -274,9 +350,48 @@ export class ChatService {
     }
 
     // Проверяем, является ли пользователь участником чата
-    const isParticipant = chat.participants.some(p => p.userId === userId);
-    if (!isParticipant) {
-      throw new ForbiddenException('У вас нет доступа к этому чату');
+    const isChatParticipant = chat.participants.some(p => p.userId === userId);
+    
+    // Если пользователь не является участником чата, проверяем, является ли он участником события
+    if (!isChatParticipant) {
+      // Загружаем событие с участниками
+      const event = await this.eventRepository.findOne({
+        where: { id: eventId },
+        relations: ['participants'],
+      });
+
+      if (!event) {
+        throw new NotFoundException('Событие не найдено');
+      }
+
+      // Проверяем, является ли пользователь участником события или создателем
+      const isEventParticipant = event.participants?.some(p => p.id === userId) || event.creatorId === userId;
+      
+      if (!isEventParticipant) {
+        throw new ForbiddenException('У вас нет доступа к этому чату');
+      }
+
+      // Если пользователь является участником события, но не чата, добавляем его в чат
+      await this.addParticipantsToChat(chat.id, [userId]);
+      
+      // Перезагружаем чат с обновленными участниками
+      const updatedChat = await this.chatRepository.findOne({
+        where: { id: chat.id },
+        relations: ['event', 'participants', 'participants.user'],
+      });
+
+      if (!updatedChat) {
+        throw new NotFoundException('Чат не найден');
+      }
+
+      // Преобразуем participants из ChatParticipant[] в User[]
+      if (updatedChat.participants && Array.isArray(updatedChat.participants)) {
+        (updatedChat as any).participants = updatedChat.participants
+          .map((p: ChatParticipant) => p.user)
+          .filter((user: User) => user !== null && user !== undefined);
+      }
+
+      return updatedChat;
     }
 
     // Преобразуем participants из ChatParticipant[] в User[]
@@ -328,24 +443,47 @@ export class ChatService {
       relations: ['sender', 'replyToMessage', 'replyToMessage.sender'],
     });
 
+    // Получаем чат с информацией о типе
+    const chat = await this.chatRepository.findOne({
+      where: { id: chatId },
+      relations: ['event'],
+    });
+
     // Получаем всех участников чата для создания уведомлений
     const participants = await this.chatParticipantRepository.find({
       where: { chatId },
       relations: ['user'],
     });
 
-    // Создаем уведомления для всех участников чата, кроме отправителя
+    // Для чатов событий проверяем, что участники чата действительно являются участниками события
+    let validParticipants = participants.filter(p => p.userId !== senderId);
+    
+    if (chat && chat.type === ChatType.EVENT && chat.eventId) {
+      const event = await this.eventRepository.findOne({
+        where: { id: chat.eventId },
+        relations: ['participants'],
+      });
+
+      if (event) {
+        // Фильтруем участников: оставляем только тех, кто является участником события или создателем
+        validParticipants = validParticipants.filter(participant => {
+          const isEventParticipant = event.participants?.some(p => p.id === participant.userId) || event.creatorId === participant.userId;
+          return isEventParticipant;
+        });
+      }
+    }
+
+    // Создаем уведомления только для валидных участников
     try {
-      const notificationPromises = participants
-        .filter(p => p.userId !== senderId)
-        .map(participant =>
-          this.notificationService.createNotification({
-            userId: participant.userId,
-            type: NotificationType.MESSAGE_RECEIVED,
-            actorId: senderId,
-            chatId: chatId,
-          })
-        );
+      const notificationPromises = validParticipants.map(participant =>
+        this.notificationService.createNotification({
+          userId: participant.userId,
+          type: NotificationType.MESSAGE_RECEIVED,
+          actorId: senderId,
+          chatId: chatId,
+          eventId: chat && chat.type === ChatType.EVENT ? chat.eventId : undefined,
+        })
+      );
       
       await Promise.all(notificationPromises);
     } catch (error) {
@@ -353,20 +491,18 @@ export class ChatService {
       // Не прерываем выполнение, если уведомления не создались
     }
 
-    // Отправляем сообщение через WebSocket всем участникам чата, кроме отправителя
+    // Отправляем сообщение через WebSocket только валидным участникам
     if (this.webSocketGateway && messageWithSender) {
       const messageData = this.sanitizeDeletedMessage(messageWithSender);
-      participants
-        .filter(p => p.userId !== senderId)
-        .forEach(participant => {
-          if (this.webSocketGateway) {
-            this.webSocketGateway.sendChatMessageToUser(participant.userId, {
-              action: 'message_received',
-              chatId: chatId,
-              message: messageData,
-            });
-          }
-        });
+      validParticipants.forEach(participant => {
+        if (this.webSocketGateway) {
+          this.webSocketGateway.sendChatMessageToUser(participant.userId, {
+            action: 'message_received',
+            chatId: chatId,
+            message: messageData,
+          });
+        }
+      });
     }
 
     const messageToReturn = messageWithSender || savedMessage;
@@ -604,6 +740,14 @@ export class ChatService {
       throw new ForbiddenException('Вы можете удалить только себя из чата');
     }
 
+    await this.chatParticipantRepository.delete({ chatId, userId });
+  }
+
+  /**
+   * Удалить участника из чата без проверки прав доступа
+   * Используется для внутренних операций (например, удаление участника события из чата)
+   */
+  async removeParticipantFromChat(chatId: string, userId: string): Promise<void> {
     await this.chatParticipantRepository.delete({ chatId, userId });
   }
 
