@@ -52,8 +52,8 @@ export class UserController {
   @ApiOperation({ summary: 'Получить список всех пользователей' })
   @ApiResponse({ status: 200, description: 'Список пользователей получен успешно' })
   @ApiBearerAuth('JWT-auth')
-  // @UseGuards(JwtAuthGuard, PermissionsGuard)
-  // @RequirePermissions(['users.view'])
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['users.view'])
   async findAll(): Promise<any[]> {
     const users = await this.userService.findAll();
     return users.map(user => toSafeUserDto(user));
@@ -61,7 +61,7 @@ export class UserController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  // @RequirePermissions(['users.view'])
+  @RequirePermissions(['users.view'])
   async findById(
     @Param('id') id: string,
     @Request() req?: any

@@ -14,6 +14,7 @@ import { FilterRequestDto } from '../../common/dto/filter.dto';
 import { PasswordGeneratorService } from '../../common/services/password-generator.service';
 import { FriendRequestService } from '../friend-request/friend-request.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 import axios from 'axios';
 
 export interface GoogleCallbackRequest extends Request {
@@ -737,8 +738,9 @@ export class AuthController {
   }
 
   // Эндпоинт для получения всех пользователей (для админ панели)
-  // Временно без авторизации для тестирования
   @Get('users')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['users.view'])
   async getAllUsers(): Promise<any[]> {
     const users = await this.userService.findAll();
     
@@ -758,6 +760,8 @@ export class AuthController {
 
   // Эндпоинт для получения пользователей с фильтрацией через query параметры
   @Get('users/filter')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['users.view'])
   async getUsersWithFilter(@FilterQuery() filterRequest: FilterRequestDto): Promise<any> {
     const result = await this.userService.findAllWithFilters(filterRequest);
     
@@ -788,6 +792,8 @@ export class AuthController {
 
   // Эндпоинт для получения пользователей с фильтрацией через POST запрос
   @Post('users/search')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['users.view'])
   async searchUsers(@FilterBody() filterRequest: FilterRequestDto): Promise<any> {
     const result = await this.userService.findAllWithFilters(filterRequest);
     
@@ -818,6 +824,8 @@ export class AuthController {
 
   // Временный эндпоинт для получения ролей
   @Get('roles')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['roles.view'])
   async getRoles(): Promise<any[]> {
     // Получаем уникальные роли из пользователей
     const users = await this.userService.findAll();

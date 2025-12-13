@@ -1,6 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { PERMISSIONS } from '../../common/constants/permissions.constants';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('permissions')
 @Controller('permissions')
@@ -9,6 +10,7 @@ export class PermissionController {
   @ApiOperation({ summary: 'Получить список всех разрешений' })
   @ApiResponse({ status: 200, description: 'Список разрешений получен успешно' })
   @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
   async findAll(): Promise<any[]> {
     // Возвращаем захардкоженные пермишены из констант с добавлением id (используем code как id)
     return PERMISSIONS.map(permission => ({

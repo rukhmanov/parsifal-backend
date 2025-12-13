@@ -27,6 +27,8 @@ export class RoleController {
   @ApiOperation({ summary: 'Получить список всех ролей' })
   @ApiResponse({ status: 200, description: 'Список ролей получен успешно' })
   @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['roles.view'])
   async findAll(): Promise<any[]> {
     const roles = await this.roleService.findAll();
     
@@ -65,6 +67,8 @@ export class RoleController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['roles.view'])
   async findById(@Param('id') id: string): Promise<any | null> {
     const role = await this.roleService.findById(id);
     
@@ -140,6 +144,8 @@ export class RoleController {
   }
 
   @Post(':id/permissions/:permissionCode')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['roles.edit'])
   async addPermissionToRole(
     @Param('id') roleId: string,
     @Param('permissionCode') permissionCode: string
@@ -148,6 +154,8 @@ export class RoleController {
   }
 
   @Delete(':id/permissions/:permissionCode')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions(['roles.edit'])
   async removePermissionFromRole(
     @Param('id') roleId: string,
     @Param('permissionCode') permissionCode: string
