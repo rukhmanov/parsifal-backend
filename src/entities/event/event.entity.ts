@@ -33,6 +33,12 @@ export class Event {
   @Column({ type: 'text', nullable: true })
   addressComment?: string; // Комментарий к адресу
 
+  @Column({ type: 'text', nullable: true })
+  region?: string; // Область/регион события
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  regionCode?: string; // Код региона (ISO3166-2-lvl4, например RU-NIZ)
+
   @Column({ type: 'boolean', default: false })
   hideAddressForNonParticipants!: boolean; // Скрывать адрес для не участников
 

@@ -21,6 +21,8 @@ export interface CreateEventDto {
   longitude?: number;
   address?: string;
   addressComment?: string;
+  region?: string;
+  regionCode?: string;
   hideAddressForNonParticipants?: boolean;
   entrance?: number;
   floor?: number;
@@ -43,6 +45,8 @@ export interface UpdateEventDto {
   longitude?: number;
   address?: string;
   addressComment?: string;
+  region?: string;
+  regionCode?: string;
   hideAddressForNonParticipants?: boolean;
   entrance?: number;
   floor?: number;
@@ -62,6 +66,8 @@ export class EventService {
     { key: 'title', type: 'string' as const, searchable: true, sortable: true },
     { key: 'description', type: 'string' as const, searchable: true, sortable: false },
     { key: 'address', type: 'string' as const, searchable: true, sortable: false },
+    { key: 'region', type: 'string' as const, searchable: true, sortable: false },
+    { key: 'regionCode', type: 'string' as const, searchable: true, sortable: false },
     { key: 'dateTime', type: 'date' as const, searchable: false, sortable: true, isRangeFilter: true },
     { key: 'maxParticipants', type: 'number' as const, searchable: false, sortable: true },
     { key: 'duration', type: 'number' as const, searchable: false, sortable: true },
