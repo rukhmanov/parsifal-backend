@@ -27,7 +27,9 @@ async function bootstrap(): Promise<void> {
         'http://127.0.0.1:8100',
         'http://127.0.0.1:4200',
         'http://127.0.0.1:3000',
-        'http://192.168.1.31:8100'
+        'http://192.168.1.31:8100',
+        'https://rukhmanov-parsifal-frontend-e1d5.twc1.net',
+        'https://parsefal.ru'
       ];
       
       // Разрешаем запросы без origin (например, из Postman)
