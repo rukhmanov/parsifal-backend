@@ -63,21 +63,37 @@ export class AuthController {
   ): Promise<void> {
     try {
       if (!code) {
+        console.error('Google mobile callback: Authorization code is missing');
         throw new Error('Authorization code is missing');
       }
+
+      const redirectUri = `${process.env.BACKEND_URL}/api/auth/google/mobile-callback`;
+      
+      if (!process.env.BACKEND_URL) {
+        console.error('Google mobile callback: BACKEND_URL is not set');
+        throw new Error('BACKEND_URL is not configured');
+      }
+
+      console.log('Google mobile callback: Exchanging code for token', {
+        redirectUri,
+        hasCode: !!code,
+        hasState: !!state
+      });
 
       // Обмениваем код на токен через Google
       const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
         code,
         client_id: process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: `${process.env.BACKEND_URL}/api/auth/google/mobile-callback`,
+        redirect_uri: redirectUri,
         grant_type: 'authorization_code',
       }, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
+
+      console.log('Google mobile callback: Token received successfully');
 
       // Получаем информацию о пользователе
       const userResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -97,10 +113,21 @@ export class AuthController {
 
       const jwtToken = await this.authService.generateJwtToken(user);
       
+      console.log('Google mobile callback: Redirecting to app with token');
+      
       // Перенаправляем в мобильное приложение
       res.redirect(`parsifal://google-callback?token=${jwtToken}&code=${code}&state=${state || ''}`);
-    } catch (error) {
-      res.redirect(`parsifal://google-callback?error=authentication_failed`);
+    } catch (error: any) {
+      console.error('Google mobile callback error:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        redirectUri: `${process.env.BACKEND_URL}/api/auth/google/mobile-callback`,
+        hasBackendUrl: !!process.env.BACKEND_URL
+      });
+      
+      const errorMessage = error?.response?.data?.error_description || error?.message || 'authentication_failed';
+      res.redirect(`parsifal://google-callback?error=${encodeURIComponent(errorMessage)}`);
     }
   }
 
