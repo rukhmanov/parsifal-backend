@@ -18,7 +18,8 @@
     "create-bulk-users": "ts-node src/scripts/create-bulk-users.ts",
     "create-bulk-events": "ts-node src/scripts/create-bulk-events.ts",
     "create-bulk-participation-requests": "ts-node src/scripts/create-bulk-participation-requests.ts",
-    "add-friends": "ts-node src/scripts/add-friends.ts"
+    "add-friends": "ts-node src/scripts/add-friends.ts",
+    "create-user": "ts-node src/scripts/create-single-user.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",
