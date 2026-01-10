@@ -30,6 +30,7 @@ export class AppWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
   private readonly connectedUsers = new Map<string, AuthenticatedSocket>();
 
   constructor(
+    @Inject(forwardRef(() => AuthService))
     private readonly authService: AuthService,
     @Inject(forwardRef(() => NotificationService))
     private readonly notificationService: NotificationService,

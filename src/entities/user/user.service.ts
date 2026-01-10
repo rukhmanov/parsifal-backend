@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
@@ -6,6 +6,8 @@ import { Event } from '../event/event.entity';
 import { FilterService } from '../../common/services/filter.service';
 import { FilterRequestDto, FilterResponseDto } from '../../common/dto/filter.dto';
 import { ADMIN_ROLE_ID, getAdminRole } from '../../common/constants/permissions.constants';
+import { EventService } from '../event/event.service';
+import { ChatService } from '../chat/chat.service';
 
 @Injectable()
 export class UserService {
@@ -15,6 +17,10 @@ export class UserService {
     @InjectRepository(Event)
     private readonly eventRepository: Repository<Event>,
     private readonly filterService: FilterService,
+    @Inject(forwardRef(() => EventService))
+    private readonly eventService: EventService,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
   ) {}
 
   // Конфигурация полей для фильтрации пользователей
@@ -26,6 +32,7 @@ export class UserService {
     { key: 'gender', type: 'status-select' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'roleId', type: 'status-select' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'isActive', type: 'boolean' as const, searchable: false, sortable: true, isStatusFilter: true },
+    { key: 'isBlocked', type: 'boolean' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'authProvider', type: 'status-select' as const, searchable: false, sortable: true, isStatusFilter: true },
     { key: 'createdAt', type: 'date' as const, searchable: false, sortable: true, isRangeFilter: true },
     { key: 'updatedAt', type: 'date' as const, searchable: false, sortable: true, isRangeFilter: true },
@@ -263,6 +270,45 @@ export class UserService {
       throw new Error('Пользователь не найден');
     }
 
+    // 1. Удаляем все события, созданные пользователем
+    try {
+      await this.eventService.deleteUserEvents(userId);
+    } catch (error) {
+      console.error('Ошибка удаления событий пользователя:', error);
+      // Продолжаем выполнение даже при ошибке
+    }
+
+    // 2. Получаем все события, где пользователь является участником
+    try {
+      const participatingEvents = await this.eventService.findEventsWhereUserIsParticipant(userId, true);
+      
+      // Удаляем пользователя из всех событий, где он участник
+      for (const event of participatingEvents) {
+        try {
+          // Удаляем участника из события
+          await this.eventService.removeParticipant(event.id, userId, false);
+          
+          // Удаляем участника из чата события, если чат существует
+          try {
+            const eventChat = await this.chatService.findEventChatByEventId(event.id);
+            if (eventChat) {
+              await this.chatService.removeParticipantFromChat(eventChat.id, userId);
+            }
+          } catch (chatError) {
+            console.error(`Ошибка удаления пользователя из чата события ${event.id}:`, chatError);
+            // Продолжаем выполнение
+          }
+        } catch (eventError) {
+          console.error(`Ошибка удаления пользователя из события ${event.id}:`, eventError);
+          // Продолжаем выполнение
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка удаления пользователя из событий:', error);
+      // Продолжаем выполнение даже при ошибке
+    }
+
+    // 3. Устанавливаем статус блокировки
     user.isBlocked = true;
     user.blockReason = reason;
     user.blockedUntil = blockedUntil || undefined; // undefined = permanent block

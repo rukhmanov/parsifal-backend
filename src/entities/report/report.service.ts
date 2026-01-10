@@ -53,13 +53,66 @@ export class ReportService {
     return this.reportRepository.save(report);
   }
 
-  async findAll(status?: ReportStatus): Promise<Report[]> {
-    const where = status ? { status } : {};
-    return this.reportRepository.find({
-      where,
-      relations: ['reporter', 'reportedUser'],
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(
+    status?: ReportStatus,
+    email?: string,
+    page: number = 1,
+    pageSize: number = 15
+  ): Promise<{ data: Report[]; total: number; page: number; pageSize: number; totalPages: number }> {
+    const queryBuilder = this.reportRepository
+      .createQueryBuilder('report')
+      .leftJoinAndSelect('report.reporter', 'reporter')
+      .leftJoinAndSelect('report.reportedUser', 'reportedUser')
+      .orderBy('report.createdAt', 'DESC');
+
+    // Если передан email, находим пользователя по email
+    let reportedUserId: string | undefined;
+    if (email && email.trim()) {
+      const user = await this.userRepository.findOne({
+        where: { email: email.trim() }
+      });
+      if (user) {
+        reportedUserId = user.id;
+      } else {
+        // Если пользователь не найден, возвращаем пустой результат
+        return {
+          data: [],
+          total: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+        };
+      }
+    }
+
+    if (status) {
+      queryBuilder.where('report.status = :status', { status });
+    }
+
+    if (reportedUserId) {
+      if (status) {
+        queryBuilder.andWhere('report.reportedUserId = :reportedUserId', { reportedUserId });
+      } else {
+        queryBuilder.where('report.reportedUserId = :reportedUserId', { reportedUserId });
+      }
+    }
+
+    // Подсчитываем общее количество
+    const total = await queryBuilder.getCount();
+
+    // Применяем пагинацию
+    const skip = (page - 1) * pageSize;
+    queryBuilder.skip(skip).take(pageSize);
+
+    const data = await queryBuilder.getMany();
+
+    return {
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 
   async findById(id: string): Promise<Report> {

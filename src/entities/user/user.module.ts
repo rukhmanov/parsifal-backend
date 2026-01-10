@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { User } from './user.entity';
@@ -9,12 +9,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
 import { SelfUpdateGuard } from '../../common/guards/self-update.guard';
 import { Event } from '../event/event.entity';
+import { EventModule } from '../event/event.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Event]), 
     CommonModule, 
-    PassportModule
+    PassportModule,
+    forwardRef(() => EventModule),
+    forwardRef(() => ChatModule),
   ],
   controllers: [UserController],
   providers: [UserService, JwtAuthGuard, JwtStrategy, SelfUpdateGuard],

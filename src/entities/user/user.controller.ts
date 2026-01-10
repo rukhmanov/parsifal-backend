@@ -60,8 +60,7 @@ export class UserController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions(['users.view'])
+  @UseGuards(JwtAuthGuard)
   async findById(
     @Param('id') id: string,
     @Request() req?: any
@@ -75,7 +74,12 @@ export class UserController {
     
     // Проверяем права текущего пользователя
     const currentUser = req?.user;
-    if (currentUser) {
+    
+    // Проверяем, есть ли параметр admin=true в запросе для явного запроса админских данных
+    const isAdminRequest = req?.query?.admin === 'true';
+    
+    // Если запрошен админский режим, проверяем права
+    if (isAdminRequest && currentUser) {
       let userPermissionCodes = currentUser.role?.permissionCodes || [];
       
       // Если у роли администратора пустой массив permissionCodes, используем все коды пермишенов
@@ -85,12 +89,12 @@ export class UserController {
       
       const hasViewPermission = userPermissionCodes.includes('users.view');
       
-      // Проверяем, есть ли параметр admin=true в запросе для явного запроса админских данных
-      const isAdminRequest = req?.query?.admin === 'true';
-      
-      // Если есть права на просмотр пользователей И явно запрошены админские данные, возвращаем AdminUserDto
-      if (hasViewPermission && isAdminRequest) {
+      // Если есть права на просмотр пользователей, возвращаем AdminUserDto
+      if (hasViewPermission) {
         return toAdminUserDto(user);
+      } else {
+        // Если нет прав, но запрошен админский режим, возвращаем ошибку
+        throw new ForbiddenException('Недостаточно прав для просмотра админских данных пользователя');
       }
     }
     

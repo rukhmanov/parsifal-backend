@@ -35,6 +35,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User not found');
     }
     
+    // Проверяем, не заблокирован ли пользователь
+    const isBlocked = await this.userService.checkIfBlocked(user.id);
+    if (isBlocked) {
+      throw new UnauthorizedException('Ваш аккаунт заблокирован. Обратитесь к администратору.');
+    }
+    
     // Если у пользователя есть роль, загружаем её с пермишенами
     if (user.roleId) {
       const userWithRole = await this.userService.findById(payload.sub);

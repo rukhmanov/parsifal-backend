@@ -16,7 +16,7 @@ import { ChatModule } from '../chat/chat.module';
   imports: [
     TypeOrmModule.forFeature([Event, User]),
     PassportModule,
-    UserModule,
+    forwardRef(() => UserModule),
     NotificationModule,
     CommonModule,
     forwardRef(() => ChatModule),

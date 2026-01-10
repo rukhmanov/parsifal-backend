@@ -19,7 +19,7 @@ import { WebSocketModule } from '../websocket/websocket.module';
   imports: [
     TypeOrmModule.forFeature([Chat, Message, ChatParticipant, User, Event]),
     PassportModule,
-    UserModule,
+    forwardRef(() => UserModule),
     forwardRef(() => EventModule),
     NotificationModule,
     forwardRef(() => WebSocketModule),

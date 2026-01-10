@@ -11,10 +11,11 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ReportService } from './report.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { FindReportsDto } from './dto/find-reports.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard, RequirePermissions } from '../../common/guards/permissions.guard';
 
@@ -35,14 +36,20 @@ export class ReportController {
     return this.reportService.create(userId, createReportDto);
   }
 
-  @Get()
+  @Post('search')
   @UseGuards(PermissionsGuard)
   @RequirePermissions(['reports.view'])
-  @ApiOperation({ summary: 'Получить все жалобы (только для администраторов)' })
+  @ApiOperation({ summary: 'Получить все жалобы с фильтрацией (только для администраторов)' })
   @ApiResponse({ status: 200, description: 'Список жалоб' })
-  async findAll() {
-    // Можно добавить фильтрацию по статусу через query параметры
-    return this.reportService.findAll();
+  @ApiBody({ type: FindReportsDto })
+  async findAll(@Body() findReportsDto: FindReportsDto) {
+    const { status, email, page = 1, pageSize = 15 } = findReportsDto;
+    return this.reportService.findAll(
+      status as any,
+      email,
+      page,
+      pageSize
+    );
   }
 
   @Get('my-reports')
@@ -51,6 +58,15 @@ export class ReportController {
   async getMyReports(@Request() req: any) {
     const userId = req.user.id;
     return this.reportService.getReportsByReporter(userId);
+  }
+
+  @Get('user/:userId')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(['reports.view'])
+  @ApiOperation({ summary: 'Получить жалобы на конкретного пользователя (только для администраторов)' })
+  @ApiResponse({ status: 200, description: 'Список жалоб на пользователя' })
+  async getReportsByUser(@Param('userId') userId: string) {
+    return this.reportService.getReportsByUser(userId);
   }
 
   @Get(':id')
